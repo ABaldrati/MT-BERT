@@ -1,0 +1,77 @@
+import torch
+from torch import nn
+import torch.nn.functional as F
+from torch.nn import BCELoss
+
+from transformers import BertTokenizer, BertModel
+
+
+class SSCModule(nn.Module):  # Single sentence classification
+    def __init__(self, hidden_size):
+        super().__init__()
+
+        self.output_layer = nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        return F.softmax(self.output_layer(x))
+
+
+class PTSModule(nn.Module):  # Pairwise text similarity
+    def __init__(self, hidden_size):
+        super().__init__()
+
+        self.output_layer = nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        return self.output_layer(x)
+
+
+class PTCModule(nn.Module):  # Pariwise text classification
+    def __init__(self, hidden_size, k_steps, output_classes, stochastic_prediction_dropout=0.2):
+        super().__init__()
+        self.stochastic_prediction_dropout = stochastic_prediction_dropout
+        self.k_steps = k_steps
+        self.hidden_size = hidden_size
+        self.output_classes = output_classes
+
+        self.GRU = nn.GRU(input_size=hidden_size, hidden_size=hidden_size, batch_first=True)
+
+        self.W1 = nn.Linear(hidden_size, 1)
+        self.W2 = nn.Linear(hidden_size, hidden_size)
+        self.W3 = nn.Linear(4 * hidden_size, output_classes)
+
+    def forward(self, premises: torch.Tensor, hypotheses: torch.Tensor):
+        batch_size = premises.size(0)
+        output_probabilities = torch.zeros(batch_size, self.output_classes)
+
+        flatten_hypotheses = hypotheses.view(-1, self.hidden_size)
+        flatten_premise = premises.view(-1, self.hidden_size)
+
+        alfas = F.softmax(self.W1(flatten_hypotheses).view(batch_size, - 1), -1)
+        s_state = (alfas.unsqueeze(1) @ hypotheses)  # (Bs,1,hidden)
+
+        layer_output = self.W2(flatten_premise).view(batch_size, -1, self.hidden_size)
+        layer_output_transpose = torch.transpose(layer_output, 1, 2)
+
+        actual_k = 0
+        for k in range(self.k_steps):
+            betas = F.softmax(s_state @ layer_output_transpose, -1)  # TODO check correctness
+            x_input = betas @ premises
+            _, s_state = self.GRU(x_input, s_state.transpose(0, 1))
+            s_state = s_state.transpose(0, 1)
+            concatenated_features = torch.cat([s_state, x_input, (s_state - x_input).abs(), x_input * s_state], -1)
+            if torch.rand(()) > self.stochastic_prediction_dropout:
+                output_probabilities += F.softmax(self.W3(concatenated_features), -1).squeeze()
+                actual_k += 1
+
+        return output_probabilities / actual_k
+
+
+class PRModule(nn.Module):  # Pairwise ranking module
+    def __init__(self, hidden_size):
+        super().__init__()
+
+        self.output_layer = nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        return torch.sigmoid(self.output_layer(x))
