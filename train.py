@@ -36,6 +36,7 @@ datasets_config = {
                           metrics=[accuracy_score]),
     Task.QQP: TaskConfig(("glue", "qqp"), ["label", "question1", "question2"], batch_size=64,
                          metrics=[accuracy_score, f1_score]),
+    Task.RTE: TaskConfig(("glue", "rte"), ["label", "sentence1", "sentence2"], batch_size=64, metrics=[accuracy_score]),
     Task.MRPC: TaskConfig(("glue", "mrpc"), ["label", "sentence1", "sentence2"], batch_size=64,
                           metrics=[accuracy_score, f1_score]),
     Task.QNLI: TaskConfig(("glue", "qnli"), ["label", "question", "sentence"], batch_size=64, metrics=[accuracy_score]),
