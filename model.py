@@ -53,7 +53,7 @@ class PTCModule(nn.Module):  # Pariwise text classification
             nn.Dropout(dropout_prob))
 
         self.W3 = nn.Sequential(
-            nn.Linear(hidden_size, output_classes),
+            nn.Linear(4 * hidden_size, output_classes),
             nn.Dropout(dropout_prob))
 
     def forward(self, premises: torch.Tensor, hypotheses: torch.Tensor):
