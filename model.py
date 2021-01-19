@@ -19,7 +19,7 @@ class SSCModule(nn.Module):  # Single sentence classification
             nn.Dropout(dropout_prob))
 
     def forward(self, x):
-        return F.softmax(self.output_layer(x))
+        return torch.nn.Softmax(self.output_layer(x))
 
 
 class PTSModule(nn.Module):  # Pairwise text similarity
