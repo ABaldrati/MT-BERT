@@ -6,7 +6,6 @@ from random import sample
 import pandas as pd
 import torch
 from datasets import load_dataset, concatenate_datasets, ClassLabel
-from pytorch_lightning.metrics import utils
 from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import matthews_corrcoef, accuracy_score, f1_score
 from torch import optim
@@ -143,10 +142,7 @@ if __name__ == '__main__':
 
             task_criterion = MT_BERT.loss_for_task(task_action)
 
-            if task_action.num_classes() > 1:
-                loss = task_criterion(output, utils.to_onehot(label, task_action.num_classes()))
-            else:
-                loss = task_criterion(output, label)
+            loss = task_criterion(output, label)
 
             loss.backward()
             optimizer.step()
