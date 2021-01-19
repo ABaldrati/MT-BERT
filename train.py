@@ -75,6 +75,13 @@ if __name__ == '__main__':
 
             train_dataset = train_dataset.map(label_mapper, input_columns=["label"])
             val_dataset = val_dataset.map(label_mapper, input_columns=["label"])
+        elif task == Task.SNLI:
+            def label_filter(x):
+                return x != -1
+
+
+            train_dataset = train_dataset.filter(label_filter, input_columns=["label"])
+            val_dataset = val_dataset.filter(label_filter, input_columns=["label"])
 
         train_dataset.set_format(columns=columns)
         val_dataset.set_format(columns=columns)
