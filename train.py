@@ -9,7 +9,7 @@ from datasets import load_dataset, concatenate_datasets, ClassLabel
 from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import matthews_corrcoef, accuracy_score, f1_score
 from torch import optim
-from torch.nn import BCELoss, MSELoss
+from torch.nn import BCELoss, MSELoss, CrossEntropyLoss
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -18,7 +18,7 @@ from tqdm import tqdm
 from model import MT_BERT, compute_qnli_batch_output
 from task import Task, TaskConfig
 
-NUM_EPOCHS = int(2e5)
+NUM_EPOCHS = int(5)
 
 if __name__ == '__main__':
     training_start = datetime.datetime.now().isoformat()
@@ -84,6 +84,10 @@ if __name__ == '__main__':
             "val_loader": val_loader
         }
 
+    losses = {'BCELoss': BCELoss(), 'CrossEntropyLoss': CrossEntropyLoss(), 'MSELoss': MSELoss()}
+    for name, loss in losses.items():
+        losses[name].cuda()
+
     results_folder = Path(f"results_{training_start}")
     results_folder.mkdir(exist_ok=True)
 
@@ -93,16 +97,9 @@ if __name__ == '__main__':
 
     if torch.cuda.is_available():
         model.cuda()
+        torch.backends.cudnn.benchmark = True
 
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    lr_scheduler = StepLR(optimizer, step_size=NUM_EPOCHS // 2, gamma=0.1)
-
-    bce_loss = BCELoss()
-    mse_loss = MSELoss()
-
-    if torch.cuda.is_available():
-        bce_loss.cuda()
-        mse_loss.cuda()
 
     task_actions = []
     for task in iter(Task):
@@ -121,10 +118,7 @@ if __name__ == '__main__':
             batch_size = data['label'].size(0)
             columns = tasks_config[task_action]["columns"]
 
-            if torch.cuda.is_available():
-                data = data.cuda()
-
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
 
             data_columns = [col for col in tasks_config[task_action]["columns"] if col != "label"]
             input_data = list(zip(*(data[col] for col in data_columns)))
@@ -140,13 +134,12 @@ if __name__ == '__main__':
                 output = model(input_data, task_action)
                 label = data["label"]
 
-            task_criterion = MT_BERT.loss_for_task(task_action)
+            task_criterion = losses[MT_BERT.loss_for_task(task_action)]
 
             loss = task_criterion(output, label)
 
             loss.backward()
             optimizer.step()
-            lr_scheduler.step()
 
         models_path = results_folder / "saved_models"
         models_path.mkdir(exist_ok=True)

@@ -127,6 +127,8 @@ class MT_BERT(nn.Module):
     def forward(self, x, task: Task):
         tokenized_input = self.tokenizer(x, padding=True, return_tensors='pt')
         bert_output = self.bert(**tokenized_input).last_hidden_state
+        if torch.cuda.is_available():
+            bert_output = bert_output.cuda()
         cls_embedding = bert_output[:, 0, :]
         if task == Task.CoLA:
             return self.CoLa(cls_embedding)
@@ -161,16 +163,16 @@ class MT_BERT(nn.Module):
     @staticmethod
     def loss_for_task(t: Task):
         losses = {
-            Task.CoLA: CrossEntropyLoss(),
-            Task.SST_2: CrossEntropyLoss(),
-            Task.STS_B: MSELoss(),
-            Task.MNLI: CrossEntropyLoss(),
-            Task.WNLI: CrossEntropyLoss(),
-            Task.QQP: CrossEntropyLoss(),
-            Task.MRPC: CrossEntropyLoss(),
-            Task.QNLI: BCELoss(),
-            Task.SNLI: CrossEntropyLoss(),
-            Task.SciTail: CrossEntropyLoss()
+            Task.CoLA: "CrossEntropyLoss",
+            Task.SST_2: "CrossEntropyLoss",
+            Task.STS_B: "MSELoss",
+            Task.MNLI: "CrossEntropyLoss",
+            Task.WNLI: "CrossEntropyLoss",
+            Task.QQP: "CrossEntropyLoss",
+            Task.MRPC: "CrossEntropyLoss",
+            Task.QNLI: "BCELoss",
+            Task.SNLI: "CrossEntropyLoss",
+            Task.SciTail: "CrossEntropyLoss",
         }
 
         return losses[t]
