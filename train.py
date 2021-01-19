@@ -118,7 +118,7 @@ for epoch in range(1, NUM_EPOCHS + 1):
     for task_action in epoch_bar:
         train_loader = tasks_config[task_action]["train_loader"]
 
-        data = next(train_loader)
+        data = next(iter(train_loader))
         batch_size = data.size(0)
         columns = tasks_config[task_action]["columns"]
 
