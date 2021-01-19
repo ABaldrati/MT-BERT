@@ -10,38 +10,50 @@ from transformers import BertTokenizer, BertModel
 
 
 class SSCModule(nn.Module):  # Single sentence classification
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, dropout_prob=0.1):
         super().__init__()
 
-        self.output_layer = nn.Linear(hidden_size, 1)
+        self.output_layer = nn.Sequential(
+            nn.Linear(hidden_size, 1),
+            nn.Dropout(dropout_prob))
 
     def forward(self, x):
         return F.softmax(self.output_layer(x))
 
 
 class PTSModule(nn.Module):  # Pairwise text similarity
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, dropout_prob=0.1):
         super().__init__()
 
-        self.output_layer = nn.Linear(hidden_size, 1)
+        self.output_layer = nn.Sequential(
+            nn.Linear(hidden_size, 1),
+            nn.Dropout(dropout_prob))
 
     def forward(self, x):
         return self.output_layer(x)
 
 
 class PTCModule(nn.Module):  # Pariwise text classification
-    def __init__(self, hidden_size, k_steps, output_classes, stochastic_prediction_dropout=0.2):
+    def __init__(self, hidden_size, k_steps, output_classes, dropout_prob=0.1, stochastic_prediction_dropout_prob=0.1):
         super().__init__()
-        self.stochastic_prediction_dropout = stochastic_prediction_dropout
+        self.stochastic_prediction_dropout = stochastic_prediction_dropout_prob
         self.k_steps = k_steps
         self.hidden_size = hidden_size
         self.output_classes = output_classes
 
-        self.GRU = nn.GRU(input_size=hidden_size, hidden_size=hidden_size, batch_first=True)
+        self.GRU = nn.GRU(input_size=hidden_size, hidden_size=hidden_size, batch_first=True, dropout=dropout_prob)
 
-        self.W1 = nn.Linear(hidden_size, 1)
-        self.W2 = nn.Linear(hidden_size, hidden_size)
-        self.W3 = nn.Linear(4 * hidden_size, output_classes)
+        self.W1 = nn.Sequential(
+            nn.Linear(hidden_size, 1),
+            nn.Dropout(dropout_prob))
+
+        self.W2 = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.Dropout(dropout_prob))
+
+        self.W3 = nn.Sequential(
+            nn.Linear(hidden_size, output_classes),
+            nn.Dropout(dropout_prob))
 
     def forward(self, premises: torch.Tensor, hypotheses: torch.Tensor):
         batch_size = premises.size(0)
