@@ -4,7 +4,6 @@ from typing import List, Any
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch.nn import BCELoss, CrossEntropyLoss, MSELoss
 from transformers import BertTokenizer, BertModel
 
 from task import Task
@@ -182,6 +181,7 @@ class MT_BERT(nn.Module):
             Task.QNLI: "BCELoss",
             Task.SNLI: "CrossEntropyLoss",
             Task.SciTail: "CrossEntropyLoss",
+            Task.RTE: "CrossEntropyLoss"
         }
 
         return losses[t]
