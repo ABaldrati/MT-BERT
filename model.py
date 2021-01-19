@@ -145,26 +145,26 @@ class MT_BERT(nn.Module):
         elif task == Task.STS_B:
             return self.STS_B(cls_embedding)
         elif task == Task.MNLI:
-            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
             return self.MNLI(premises, hypotheses)
         elif task == Task.RTE:
-            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
             return self.RTE(premises, hypotheses)
         elif task == Task.WNLI:
-            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
             return self.WNLI(premises, hypotheses)
         elif task == Task.QQP:
-            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
             return self.QQP(premises, hypotheses)
         elif task == Task.MRPC:
-            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
             return self.MRPC(premises, hypotheses)
         elif task == Task.SNLI:
-            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
-            return self.SNLI(hypotheses, premises)
+            premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
+            return self.SNLI(premises, hypotheses)
         elif task == Task.SciTail:
-            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
-            return self.SciTail(hypotheses, premises)
+            premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
+            return self.SciTail(premises, hypotheses)
         elif task == Task.QNLI:
             return self.QNLI(cls_embedding)
 
@@ -187,12 +187,16 @@ class MT_BERT(nn.Module):
         return losses[t]
 
     def preprocess_PTC_input(self, bert_output, tokenized_input):
-        # TODO: Remove trailing and heading zeros after masking
         mask_premises = tokenized_input.attention_mask * torch.logical_not(tokenized_input.token_type_ids)
-        premises = mask_premises.unsqueeze(2).repeat(1, 1, self.hidden_size) * bert_output
+        premises_mask = mask_premises.unsqueeze(2).repeat(1, 1, self.hidden_size)
+        longest_premise = torch.max(torch.sum(torch.logical_not(tokenized_input.token_type_ids), -1))
+        premises = (bert_output * premises_mask)[:, :longest_premise, :]
+
         mask_hypotheses = tokenized_input.attention_mask * tokenized_input.token_type_ids
-        hypotheses = mask_hypotheses.unsqueeze(2).repeat(1, 1, self.hidden_size) * bert_output
-        return hypotheses, premises
+        hypotheses_mask = mask_hypotheses.unsqueeze(2).repeat(1, 1, 768)
+        longest_hypothesis = torch.max(torch.sum(tokenized_input.token_type_ids, -1))
+        hypotheses = (bert_output * hypotheses_mask).flip([1])[:, :longest_hypothesis, :].flip([1])
+        return premises, hypotheses
 
 
 def compute_qnli_batch_output(batch, class_label, model):
