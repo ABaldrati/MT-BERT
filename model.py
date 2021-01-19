@@ -127,9 +127,10 @@ class MT_BERT(nn.Module):
 
     def forward(self, x, task: Task):
         tokenized_input = self.tokenizer(x, padding=True, return_tensors='pt')
-        bert_output = self.bert(**tokenized_input).last_hidden_state
         if torch.cuda.is_available():
-            bert_output = bert_output.cuda()
+            for name, data in tokenized_input.items():
+                tokenized_input[name] = tokenized_input[name].cuda()
+        bert_output = self.bert(**tokenized_input).last_hidden_state
         cls_embedding = bert_output[:, 0, :]
         if task == Task.CoLA:
             return self.CoLa(cls_embedding)
