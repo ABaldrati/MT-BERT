@@ -136,7 +136,10 @@ if __name__ == '__main__':
                 label = torch.ones(len(output)).to(device)
             else:
                 output = model(input_data, task_action)
+
                 label = data["label"]
+                if label.dtype == torch.float64:
+                    label = label.to(torch.float32)
                 label = label.to(device)
 
             task_criterion = losses[MT_BERT.loss_for_task(task_action)]

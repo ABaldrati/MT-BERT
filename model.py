@@ -19,9 +19,9 @@ class SSCModule(nn.Module):  # Single sentence classification
         super().__init__()
 
         self.output_layer = nn.Sequential(
-            nn.Linear(hidden_size, 1),
+            nn.Linear(hidden_size, 2),
             nn.Dropout(dropout_prob),
-            nn.Softmax())
+            nn.Softmax(-1))
 
     def forward(self, x):
         return self.output_layer(x)
@@ -36,7 +36,7 @@ class PTSModule(nn.Module):  # Pairwise text similarity
             nn.Dropout(dropout_prob))
 
     def forward(self, x):
-        return self.output_layer(x)
+        return self.output_layer(x).view(-1)
 
 
 class PTCModule(nn.Module):  # Pariwise text classification
