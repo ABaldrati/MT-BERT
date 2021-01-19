@@ -16,10 +16,11 @@ class SSCModule(nn.Module):  # Single sentence classification
 
         self.output_layer = nn.Sequential(
             nn.Linear(hidden_size, 1),
-            nn.Dropout(dropout_prob))
+            nn.Dropout(dropout_prob),
+            nn.Softmax())
 
     def forward(self, x):
-        return torch.nn.Softmax(self.output_layer(x))
+        return self.output_layer(x)
 
 
 class PTSModule(nn.Module):  # Pairwise text similarity
