@@ -31,23 +31,23 @@ if __name__ == '__main__':
         device = torch.device("cpu")
 
     datasets_config = {
-        Task.CoLA: TaskConfig(("glue", "cola"), ["label", "sentence"], batch_size=64, metrics=[matthews_corrcoef]),
-        Task.SST_2: TaskConfig(("glue", "sst2"), ["label", "sentence"], batch_size=64, metrics=[accuracy_score]),
-        Task.STS_B: TaskConfig(("glue", "stsb"), ["label", "sentence1", "sentence2"], batch_size=64,
+        Task.CoLA: TaskConfig(("glue", "cola"), ["label", "sentence"], batch_size=32, metrics=[matthews_corrcoef]),
+        Task.SST_2: TaskConfig(("glue", "sst2"), ["label", "sentence"], batch_size=32, metrics=[accuracy_score]),
+        Task.STS_B: TaskConfig(("glue", "stsb"), ["label", "sentence1", "sentence2"], batch_size=32,
                                metrics=[pearsonr, spearmanr]),
-        Task.MNLI: TaskConfig(("glue", "mnli"), ["label", "hypothesis", "premise"], batch_size=64,
+        Task.MNLI: TaskConfig(("glue", "mnli"), ["label", "hypothesis", "premise"], batch_size=32,
                               metrics=[accuracy_score]),
-        Task.WNLI: TaskConfig(("glue", "wnli"), ["label", "sentence1", "sentence2"], batch_size=64,
+        Task.WNLI: TaskConfig(("glue", "wnli"), ["label", "sentence1", "sentence2"], batch_size=32,
                               metrics=[accuracy_score]),
-        Task.QQP: TaskConfig(("glue", "qqp"), ["label", "question1", "question2"], batch_size=64,
+        Task.QQP: TaskConfig(("glue", "qqp"), ["label", "question1", "question2"], batch_size=32,
                              metrics=[accuracy_score, f1_score]),
-        Task.RTE: TaskConfig(("glue", "rte"), ["label", "sentence1", "sentence2"], batch_size=64, metrics=[accuracy_score]),
-        Task.MRPC: TaskConfig(("glue", "mrpc"), ["label", "sentence1", "sentence2"], batch_size=64,
+        Task.RTE: TaskConfig(("glue", "rte"), ["label", "sentence1", "sentence2"], batch_size=32, metrics=[accuracy_score]),
+        Task.MRPC: TaskConfig(("glue", "mrpc"), ["label", "sentence1", "sentence2"], batch_size=32,
                               metrics=[accuracy_score, f1_score]),
-        Task.QNLI: TaskConfig(("glue", "qnli"), ["label", "question", "sentence"], batch_size=64, metrics=[accuracy_score]),
-        Task.SNLI: TaskConfig(("snli", "plain_text"), ["label", "hypothesis", "premise"], batch_size=64,
+        Task.QNLI: TaskConfig(("glue", "qnli"), ["label", "question", "sentence"], batch_size=32, metrics=[accuracy_score]),
+        Task.SNLI: TaskConfig(("snli", "plain_text"), ["label", "hypothesis", "premise"], batch_size=32,
                               metrics=[accuracy_score]),
-        Task.SciTail: TaskConfig(("scitail", "tsv_format"), ["label", "hypothesis", "premise"], batch_size=64,
+        Task.SciTail: TaskConfig(("scitail", "tsv_format"), ["label", "hypothesis", "premise"], batch_size=32,
                                  metrics=[accuracy_score])
     }
 
