@@ -9,6 +9,11 @@ from transformers import BertTokenizer, BertModel
 
 from task import Task
 
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
+
 
 class SSCModule(nn.Module):  # Single sentence classification
     def __init__(self, hidden_size, dropout_prob=0.1):
@@ -59,7 +64,8 @@ class PTCModule(nn.Module):  # Pariwise text classification
 
     def forward(self, premises: torch.Tensor, hypotheses: torch.Tensor):
         batch_size = premises.size(0)
-        output_probabilities = torch.zeros(batch_size, self.output_classes)
+
+        output_probabilities = torch.zeros(batch_size, self.output_classes).to(device)
 
         flatten_hypotheses = hypotheses.view(-1, self.hidden_size)
         flatten_premise = premises.view(-1, self.hidden_size)
@@ -75,8 +81,9 @@ class PTCModule(nn.Module):  # Pariwise text classification
             betas = F.softmax(s_state @ layer_output_transpose, -1)  # TODO check correctness
             x_input = betas @ premises
             _, s_state = self.GRU(x_input, s_state.transpose(0, 1))
-            s_state = s_state.transpose(0, 1)
-            concatenated_features = torch.cat([s_state, x_input, (s_state - x_input).abs(), x_input * s_state], -1)
+            s_state = s_state.transpose(0, 1).to(device)
+            concatenated_features = torch.cat([s_state, x_input, (s_state - x_input).abs(), x_input * s_state],
+                                              -1).to(device)
             if torch.rand(()) > self.stochastic_prediction_dropout:
                 output_probabilities += F.softmax(self.W3(concatenated_features), -1).squeeze()
                 actual_k += 1
@@ -126,10 +133,10 @@ class MT_BERT(nn.Module):
         self.QNLI = PRModule(self.hidden_size)
 
     def forward(self, x, task: Task):
-        tokenized_input = self.tokenizer(x, padding=True, return_tensors='pt')
-        if torch.cuda.is_available():
-            for name, data in tokenized_input.items():
-                tokenized_input[name] = tokenized_input[name].cuda()
+        tokenized_input = self.tokenizer(x, padding=True, truncation=True, return_tensors='pt')
+        for name, data in tokenized_input.items():
+            tokenized_input[name] = tokenized_input[name].to(device)
+
         bert_output = self.bert(**tokenized_input).last_hidden_state
         cls_embedding = bert_output[:, 0, :]
         if task == Task.CoLA:

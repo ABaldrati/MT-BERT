@@ -24,6 +24,12 @@ if __name__ == '__main__':
     training_start = datetime.datetime.now().isoformat()
     print(f"------------------ training-start:  {training_start} --------------------------)")
 
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        torch.backends.cudnn.benchmark = True
+    else:
+        device = torch.device("cpu")
+
     datasets_config = {
         Task.CoLA: TaskConfig(("glue", "cola"), ["label", "sentence"], batch_size=64, metrics=[matthews_corrcoef]),
         Task.SST_2: TaskConfig(("glue", "sst2"), ["label", "sentence"], batch_size=64, metrics=[accuracy_score]),
@@ -86,7 +92,7 @@ if __name__ == '__main__':
 
     losses = {'BCELoss': BCELoss(), 'CrossEntropyLoss': CrossEntropyLoss(), 'MSELoss': MSELoss()}
     for name, loss in losses.items():
-        losses[name].cuda()
+        losses[name].to(device)
 
     results_folder = Path(f"results_{training_start}")
     results_folder.mkdir(exist_ok=True)
@@ -94,10 +100,7 @@ if __name__ == '__main__':
     writer = SummaryWriter(str(results_folder / "tensorboard_log"))
 
     model = MT_BERT()
-
-    if torch.cuda.is_available():
-        model.cuda()
-        torch.backends.cudnn.benchmark = True
+    model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
@@ -130,10 +133,11 @@ if __name__ == '__main__':
             if task_action == Task.QNLI:
                 class_label = tasks_config[task_action]["label_feature"]
                 output = compute_qnli_batch_output(input_data, class_label, model)
-                label = torch.ones(len(output))
+                label = torch.ones(len(output)).to(device)
             else:
                 output = model(input_data, task_action)
                 label = data["label"]
+                label = label.to(device)
 
             task_criterion = losses[MT_BERT.loss_for_task(task_action)]
 
