@@ -113,6 +113,7 @@ if __name__ == '__main__':
 
         for task_action in epoch_bar:
             train_loader = tasks_config[task_action]["train_loader"]
+            epoch_bar.set_description(f"current task: {task_action.name}")
 
             data = next(iter(train_loader))
             batch_size = data['label'].size(0)
