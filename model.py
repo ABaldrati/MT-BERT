@@ -2,11 +2,12 @@ from collections import defaultdict
 from typing import List, Any
 
 import torch
-from torch import nn
 import torch.nn.functional as F
-from torch.nn import BCELoss
-
+from torch import nn
+from torch.nn import BCELoss, CrossEntropyLoss, MSELoss
 from transformers import BertTokenizer, BertModel
+
+from task import Task
 
 
 class SSCModule(nn.Module):  # Single sentence classification
@@ -92,6 +93,95 @@ class PRModule(nn.Module):  # Pairwise ranking module
 
     def forward(self, x):
         return torch.sigmoid(self.output_layer(x))
+
+
+class MT_BERT(nn.Module):
+    def __init__(self, bert_pretrained_model="bert-base-uncased"):
+        super().__init__()
+
+        self.tokenizer = BertTokenizer.from_pretrained(bert_pretrained_model)
+        self.bert = BertModel.from_pretrained(bert_pretrained_model)
+        self.hidden_size = self.bert.config.hidden_size
+        k_steps = self.bert.config.num_hidden_layers
+
+        # Single-Sentence Classification modules
+        self.CoLa = SSCModule(self.hidden_size, dropout_prob=0.05)
+        self.SST_2 = SSCModule(self.hidden_size)
+
+        # Pairwise Text Similarity module
+        self.STS_B = PTSModule(self.hidden_size)
+
+        # Pairwise Text Classification
+        self.MNLI = PTCModule(self.hidden_size, k_steps, output_classes=Task.MNLI.num_classes(), dropout_prob=0.3,
+                              stochastic_prediction_dropout_prob=0.3)
+        self.RTE = PTCModule(self.hidden_size, k_steps, output_classes=Task.RTE.num_classes())
+        self.WNLI = PTCModule(self.hidden_size, k_steps, output_classes=Task.WNLI.num_classes())
+        self.QQP = PTCModule(self.hidden_size, k_steps, output_classes=Task.QQP.num_classes())
+        self.MRPC = PTCModule(self.hidden_size, k_steps, output_classes=Task.MRPC.num_classes())
+        self.SNLI = PTCModule(self.hidden_size, k_steps, output_classes=Task.SNLI.num_classes())
+        self.SciTail = PTCModule(self.hidden_size, k_steps, output_classes=Task.SciTail.num_classes())
+
+        # Pairwise Ranking
+        self.QNLI = PRModule(self.hidden_size)
+
+    def forward(self, x, task: Task):
+        tokenized_input = self.tokenizer(x, padding=True, return_tensors='pt')
+        bert_output = self.bert(**tokenized_input).last_hidden_state
+        cls_embedding = bert_output[:, 0, :]
+        if task == Task.CoLA:
+            return self.CoLa(cls_embedding)
+        elif task == Task.SST_2:
+            return self.SST_2(cls_embedding)
+        elif task == Task.STS_B:
+            return self.STS_B(cls_embedding)
+        elif task == Task.MNLI:
+            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            return self.MNLI(premises, hypotheses)
+        elif task == Task.RTE:
+            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            return self.RTE(premises, hypotheses)
+        elif task == Task.WNLI:
+            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            return self.WNLI(premises, hypotheses)
+        elif task == Task.QQP:
+            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            return self.QQP(premises, hypotheses)
+        elif task == Task.MRPC:
+            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            return self.MRPC(premises, hypotheses)
+        elif task == Task.SNLI:
+            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            return self.SNLI(hypotheses, premises)
+        elif task == Task.SciTail:
+            hypotheses, premises = self.preprocess_PTC_input(bert_output, tokenized_input)
+            return self.SciTail(hypotheses, premises)
+        elif task == Task.QNLI:
+            return self.QNLI(cls_embedding)
+
+    @staticmethod
+    def loss_for_task(t: Task):
+        losses = {
+            Task.CoLA: CrossEntropyLoss(),
+            Task.SST_2: CrossEntropyLoss(),
+            Task.STS_B: MSELoss(),
+            Task.MNLI: CrossEntropyLoss(),
+            Task.WNLI: CrossEntropyLoss(),
+            Task.QQP: CrossEntropyLoss(),
+            Task.MRPC: CrossEntropyLoss(),
+            Task.QNLI: BCELoss(),
+            Task.SNLI: CrossEntropyLoss(),
+            Task.SciTail: CrossEntropyLoss()
+        }
+
+        return losses[t]
+
+    def preprocess_PTC_input(self, bert_output, tokenized_input):
+        # TODO: Remove trailing and heading zeros after masking
+        mask_premises = tokenized_input.attention_mask * torch.logical_not(tokenized_input.token_type_ids)
+        premises = mask_premises.unsqueeze(2).repeat(1, 1, self.hidden_size) * bert_output
+        mask_hypotheses = tokenized_input.attention_mask * tokenized_input.token_type_ids
+        hypotheses = mask_hypotheses.unsqueeze(2).repeat(1, 1, self.hidden_size) * bert_output
+        return hypotheses, premises
 
 
 def compute_qnli_batch_output(batch, class_label, model):
