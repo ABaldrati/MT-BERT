@@ -148,6 +148,10 @@ if __name__ == '__main__':
             optimizer.step()
             lr_scheduler.step()
 
+        models_path = results_folder / "saved_models"
+        models_path.mkdir(exist_ok=True)
+        torch.save(model.state_dict(), str(models_path / f'epoch_{epoch}.pth'))
+
         model.eval()
         val_results = {}
         with torch.no_grad():
@@ -177,11 +181,6 @@ if __name__ == '__main__':
                 for metric in metrics:
                     val_results[task.name, metric.__name__] = metric(task_labels, task_predicted_labels)
                     writer.add_scalar(f"{task.name}_{metric.__name__}", val_results[task.name, metric.__name__])
-
-        models_path = results_folder / "saved_models"
-        models_path.mkdir(exist_ok=True)
-        torch.save(model.state_dict(), str(models_path / f'epoch_{epoch}.pth'))
-
         data_frame = pd.DataFrame(
             data=val_results,
             index=[epoch])
