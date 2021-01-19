@@ -63,7 +63,7 @@ for task, task_config in datasets_config.items():
 
     if task == Task.SciTail:
         def label_mapper(x):
-            labels = ClassLabel(names=["neutral", "entailment"])
+            labels = ClassLabel(names=["neutral", "entails"])
             return {"label": labels.str2int(x)}
 
 
@@ -120,8 +120,6 @@ for epoch in range(1, NUM_EPOCHS + 1):
         data = next(train_loader)
         batch_size = data.size(0)
         columns = tasks_config[task_action]["columns"]
-
-        running_results["batch_sizes"] += batch_size
 
         if torch.cuda.is_available():
             data = data.cuda()
