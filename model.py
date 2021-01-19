@@ -1,3 +1,6 @@
+from collections import defaultdict
+from typing import List, Any
+
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -68,10 +71,39 @@ class PTCModule(nn.Module):  # Pariwise text classification
 
 
 class PRModule(nn.Module):  # Pairwise ranking module
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, dropout_prob=0.1):
         super().__init__()
 
-        self.output_layer = nn.Linear(hidden_size, 1)
+        self.output_layer = nn.Sequential(
+            nn.Linear(hidden_size, 1),
+            nn.Dropout(dropout_prob))
 
     def forward(self, x):
         return torch.sigmoid(self.output_layer(x))
+
+
+def compute_qnli_batch_output(batch, class_label, model):
+    questions = batch["question"]
+    answers = batch["answer"]
+    labels = batch["label"]
+
+    relevant_answers = defaultdict(list)
+    for question, answer, label in zip(questions, answers, labels):
+        if class_label.int2str(label) == "entailment":
+            relevant_answers[question].append(answer)
+
+    relevance_scores = torch.empty(0)
+    for question, answer, label in zip(questions, answers, labels):
+        softmax_answers: List[Any] = answers
+        for _ in range(len(relevant_answers[question])):
+            softmax_answers.remove(answer)
+
+        softmax_answers.append(answer)
+        model_input = []
+        for a in softmax_answers:
+            model_input.append([question, a])
+
+        model_output = model(model_input)
+        relevance_scores = torch.stack((relevance_scores, torch.softmax(model_output, -1)[-1]))
+
+    return relevance_scores
