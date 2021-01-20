@@ -204,13 +204,14 @@ def compute_qnli_batch_output(batch, class_label, model):
     questions = batch["question"]
     answers = batch["sentence"]
     labels = batch["label"]
-
+    num_relevance_scores = len(list(filter(lambda l: class_label.int2str(torch.tensor([l]))[0] == "entailment", labels)))
     relevant_answers = defaultdict(list)
     for question, answer, label in zip(questions, answers, labels):
         if class_label.int2str(torch.tensor([label]))[0] == "entailment":
             relevant_answers[question].append(answer)
 
-    relevance_scores = torch.empty(0, device=device)
+    relevance_scores = torch.zeros(num_relevance_scores, device=device)
+    idx = 0
     for question, answer, label in zip(questions, answers, labels):
         softmax_answers: List[Any] = answers.copy()
         if not relevant_answers[question]:
@@ -223,7 +224,8 @@ def compute_qnli_batch_output(batch, class_label, model):
         for a in softmax_answers:
             model_input.append([question, a])
         model_output = model(model_input, Task.QNLI)
-        relevance_scores = torch.hstack((relevance_scores, torch.softmax(model_output, -1)[-1].to(device)))
+        relevance_scores[idx] = torch.softmax(model_output, -1)[-1]
+        idx += 1
         del model_output
     torch.cuda.empty_cache()
     return relevance_scores
