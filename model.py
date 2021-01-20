@@ -66,8 +66,8 @@ class PTCModule(nn.Module):  # Pariwise text classification
 
         output_probabilities = torch.zeros(batch_size, self.output_classes).to(device)
 
-        flatten_hypotheses = hypotheses.view(-1, self.hidden_size)
-        flatten_premise = premises.view(-1, self.hidden_size)
+        flatten_hypotheses = hypotheses.reshape(-1, self.hidden_size)
+        flatten_premise = premises.reshape(-1, self.hidden_size)
 
         alfas = F.softmax(self.W1(flatten_hypotheses).view(batch_size, - 1), -1)
         s_state = (alfas.unsqueeze(1) @ hypotheses)  # (Bs,1,hidden)
@@ -99,7 +99,7 @@ class PRModule(nn.Module):  # Pairwise ranking module
             nn.Dropout(dropout_prob))
 
     def forward(self, x):
-        return torch.sigmoid(self.output_layer(x))
+        return torch.sigmoid(self.output_layer(x)).view(x.size(0))
 
 
 class MT_BERT(nn.Module):
@@ -206,7 +206,7 @@ def compute_qnli_batch_output(batch, class_label, model):
 
     relevant_answers = defaultdict(list)
     for question, answer, label in zip(questions, answers, labels):
-        if class_label.int2str(label) == "entailment":
+        if class_label.int2str(torch.tensor([label]))[0] == "entailment":
             relevant_answers[question].append(answer)
 
     relevance_scores = torch.empty(0)
