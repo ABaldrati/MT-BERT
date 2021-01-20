@@ -113,7 +113,7 @@ if __name__ == '__main__':
     model = MT_BERT()
     model.to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.Adamax(model.parameters(), lr=5e-5)
 
     task_actions = []
     for task in iter(Task):
