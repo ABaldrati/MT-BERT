@@ -44,7 +44,7 @@ if __name__ == '__main__':
         Task.RTE: TaskConfig(("glue", "rte"), ["label", "sentence1", "sentence2"], batch_size=32, metrics=[accuracy_score]),
         Task.MRPC: TaskConfig(("glue", "mrpc"), ["label", "sentence1", "sentence2"], batch_size=32,
                               metrics=[accuracy_score, f1_score]),
-        Task.QNLI: TaskConfig(("glue", "qnli"), ["label", "question", "sentence"], batch_size=32, metrics=[accuracy_score]),
+        Task.QNLI: TaskConfig(("glue", "qnli"), ["label", "question", "sentence"], batch_size=8, metrics=[accuracy_score]),
         Task.SNLI: TaskConfig(("snli", "plain_text"), ["label", "hypothesis", "premise"], batch_size=32,
                               metrics=[accuracy_score]),
         Task.SciTail: TaskConfig(("scitail", "tsv_format"), ["label", "hypothesis", "premise"], batch_size=32,
@@ -86,8 +86,8 @@ if __name__ == '__main__':
         train_dataset.set_format(columns=columns)
         val_dataset.set_format(columns=columns)
 
-        val_loader = torch.utils.data.DataLoader(val_dataset, num_workers=9, batch_size=1, shuffle=False)
-        train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=9, batch_size=task_config.batch_size,
+        val_loader = torch.utils.data.DataLoader(val_dataset, num_workers=1, batch_size=1, shuffle=False)
+        train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=1, batch_size=task_config.batch_size,
                                                    shuffle=True)
 
         tasks_config[task] = {
