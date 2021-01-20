@@ -196,12 +196,13 @@ class MT_BERT(nn.Module):
         hypotheses_mask = mask_hypotheses.unsqueeze(2).repeat(1, 1, 768)
         longest_hypothesis = torch.max(torch.sum(tokenized_input.token_type_ids, -1))
         hypotheses = (bert_output * hypotheses_mask).flip([1])[:, :longest_hypothesis, :].flip([1])
+
         return premises, hypotheses
 
 
 def compute_qnli_batch_output(batch, class_label, model):
     questions = batch["question"]
-    answers = batch["answer"]
+    answers = batch["sentence"]
     labels = batch["label"]
 
     relevant_answers = defaultdict(list)
@@ -209,18 +210,20 @@ def compute_qnli_batch_output(batch, class_label, model):
         if class_label.int2str(torch.tensor([label]))[0] == "entailment":
             relevant_answers[question].append(answer)
 
-    relevance_scores = torch.empty(0)
+    relevance_scores = torch.empty(0, device=device)
     for question, answer, label in zip(questions, answers, labels):
-        softmax_answers: List[Any] = answers
-        for _ in range(len(relevant_answers[question])):
-            softmax_answers.remove(answer)
+        softmax_answers: List[Any] = answers.copy()
+        if not relevant_answers[question]:
+            continue
+        for relevant_answer in relevant_answers[question]:
+            softmax_answers.remove(relevant_answer)
 
         softmax_answers.append(answer)
         model_input = []
         for a in softmax_answers:
             model_input.append([question, a])
-
-        model_output = model(model_input)
-        relevance_scores = torch.stack((relevance_scores, torch.softmax(model_output, -1)[-1]))
-
+        model_output = model(model_input, Task.QNLI)
+        relevance_scores = torch.hstack((relevance_scores, torch.softmax(model_output, -1)[-1].to(device)))
+        del model_output
+    torch.cuda.empty_cache()
     return relevance_scores
