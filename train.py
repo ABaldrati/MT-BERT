@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import operator
 from pathlib import Path
 from random import sample
@@ -10,7 +11,6 @@ from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import matthews_corrcoef, accuracy_score, f1_score
 from torch import optim
 from torch.nn import BCELoss, MSELoss, CrossEntropyLoss
-from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -19,9 +19,13 @@ from model import MT_BERT, compute_qnli_batch_output
 from task import Task, TaskConfig
 
 NUM_EPOCHS = int(5)
-
 if __name__ == '__main__':
     training_start = datetime.datetime.now().isoformat()
+    all_files = ""
+    for file in Path(__file__).parent.resolve().glob('*.py'):
+        with open(str(file), 'r', encoding='utf-8') as f:
+            all_files += f.read()
+    print(hashlib.md5(all_files.encode()).hexdigest())
     print(f"------------------ training-start:  {training_start} --------------------------)")
 
     if torch.cuda.is_available():
