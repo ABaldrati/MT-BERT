@@ -200,7 +200,7 @@ class MT_BERT(nn.Module):
         return premises, hypotheses
 
 
-def compute_qnli_batch_output(batch, class_label, model):
+def compute_qnli_batch_output(batch, class_label, model, loss_function):
     questions = batch["question"]
     answers = batch["sentence"]
     labels = batch["label"]
@@ -211,7 +211,6 @@ def compute_qnli_batch_output(batch, class_label, model):
             relevant_answers[question].append(answer)
 
     relevance_scores = torch.zeros(num_relevance_scores, device=device)
-    idx = 0
     for question, answer, label in zip(questions, answers, labels):
         softmax_answers: List[Any] = answers.copy()
         if class_label.int2str(torch.tensor([label]))[0] == "not_entailment":
@@ -224,8 +223,8 @@ def compute_qnli_batch_output(batch, class_label, model):
         for a in softmax_answers:
             model_input.append([question, a])
         model_output = model(model_input, Task.QNLI)
-        relevance_scores[idx] = torch.softmax(model_output, -1)[-1]
-        idx += 1
+        loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1).to(device))
+        loss.backward()
         del model_output
     torch.cuda.empty_cache()
     return relevance_scores

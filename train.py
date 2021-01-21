@@ -143,7 +143,7 @@ if __name__ == '__main__':
 
             if task_action == Task.QNLI:
                 class_label = tasks_config[task_action]["label_feature"]
-                output = compute_qnli_batch_output(data, class_label, model)
+                output = compute_qnli_batch_output(data, class_label, model, losses[MT_BERT.loss_for_task(task_action)])
                 if output.size(0) == 0:
                     continue
                 label = torch.ones(len(output)).to(device)
@@ -155,11 +155,11 @@ if __name__ == '__main__':
                     label = label.to(torch.float32)
                 label = label.to(device)
 
-            task_criterion = losses[MT_BERT.loss_for_task(task_action)]
+                task_criterion = losses[MT_BERT.loss_for_task(task_action)]
 
-            loss = task_criterion(output, label)
+                loss = task_criterion(output, label)
+                loss.backward()
 
-            loss.backward()
             optimizer.step()
 
         models_path = results_folder / "saved_models"
