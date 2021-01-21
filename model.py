@@ -83,7 +83,7 @@ class PTCModule(nn.Module):  # Pariwise text classification
             s_state = s_state.transpose(0, 1).to(device)
             concatenated_features = torch.cat([s_state, x_input, (s_state - x_input).abs(), x_input * s_state],
                                               -1).to(device)
-            if torch.rand(()) > self.stochastic_prediction_dropout:
+            if torch.rand(()) > self.stochastic_prediction_dropout or (not self.training):
                 output_probabilities += F.softmax(self.W3(concatenated_features), -1).squeeze()
                 actual_k += 1
 
