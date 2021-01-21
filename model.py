@@ -47,7 +47,7 @@ class PTCModule(nn.Module):  # Pariwise text classification
         self.hidden_size = hidden_size
         self.output_classes = output_classes
 
-        self.GRU = nn.GRU(input_size=hidden_size, hidden_size=hidden_size, batch_first=True, dropout=dropout_prob)
+        self.GRU = nn.GRU(input_size=hidden_size, hidden_size=hidden_size, batch_first=True)
 
         self.W1 = nn.Sequential(
             nn.Linear(hidden_size, 1),
