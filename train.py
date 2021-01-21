@@ -160,7 +160,7 @@ if __name__ == '__main__':
                 loss = task_criterion(output, label)
                 loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1, norm_type=1)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
             optimizer.step()
 
         models_path = results_folder / "saved_models"
