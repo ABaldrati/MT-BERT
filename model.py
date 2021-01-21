@@ -214,7 +214,7 @@ def compute_qnli_batch_output(batch, class_label, model):
     idx = 0
     for question, answer, label in zip(questions, answers, labels):
         softmax_answers: List[Any] = answers.copy()
-        if not relevant_answers[question]:
+        if class_label.int2str(torch.tensor([label]))[0] == "not_entailment":
             continue
         for relevant_answer in relevant_answers[question]:
             softmax_answers.remove(relevant_answer)
