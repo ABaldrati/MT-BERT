@@ -172,7 +172,6 @@ if __name__ == '__main__':
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
         }, str(models_path / f'epoch_{epoch}.tar'))
-        torch.save(model.state_dict(), str(models_path / f'epoch_{epoch}.pth'))
 
         model.eval()
         val_results = {}
