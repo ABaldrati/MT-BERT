@@ -92,7 +92,7 @@ if __name__ == '__main__':
         train_dataset.set_format(columns=columns)
         val_dataset.set_format(columns=columns)
 
-        val_loader = torch.utils.data.DataLoader(val_dataset, num_workers=1, batch_size=1, shuffle=False)
+        val_loader = torch.utils.data.DataLoader(val_dataset, num_workers=4, batch_size=8, shuffle=False)
         train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=1, batch_size=task_config.batch_size,
                                                    shuffle=True)
 
