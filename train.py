@@ -181,12 +181,12 @@ if __name__ == '__main__':
                 task_bar.set_description(task.name)
                 val_loader = tasks_config[task]["val_loader"]
 
-                task_predicted_labels = torch.empty(0)
-                task_labels = torch.empty(0)
+                task_predicted_labels = torch.empty(0, device=device)
+                task_labels = torch.empty(0, device=device)
                 for val_data in val_loader:
                     data_columns = [col for col in tasks_config[task]["columns"] if col != "label"]
                     input_data = list(zip(*(val_data[col] for col in data_columns)))
-                    label = val_data["label"]
+                    label = val_data["label"].to(device)
 
                     if len(data_columns) == 1:
                         input_data = list(map(operator.itemgetter(0), input_data))
