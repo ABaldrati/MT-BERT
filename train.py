@@ -192,7 +192,12 @@ if __name__ == '__main__':
                         input_data = list(map(operator.itemgetter(0), input_data))
 
                     model_output = model(input_data, task)
-                    if task.num_classes() > 1:
+
+                    if task == Task.QNLI:
+                        predicted_label = torch.round(model_output)
+                        predicted_label = torch.logical_not(predicted_label)
+                        predicted_label.to(torch.int8)
+                    elif task.num_classes() > 1:
                         predicted_label = torch.argmax(model_output, -1)
                     else:
                         predicted_label = model_output
