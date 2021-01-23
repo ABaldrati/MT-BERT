@@ -15,23 +15,69 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from model import MT_BERT, compute_qnli_batch_output
-from task import Task, TaskConfig
+from model import MT_BERT
+from task import Task, TaskConfig, define_dataset_config, define_tasks_config
 
-NUM_EPOCHS = int(5)
-if __name__ == '__main__':
-    training_start = datetime.datetime.now().isoformat()
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    torch.backends.cudnn.benchmark = True
+else:
+    device = torch.device("cpu")
+
+
+def train_qnli_batch(batch, class_label, model, loss_function):
+    questions = batch["question"]
+    answers = batch["sentence"]
+    labels = batch["label"]
+    relevant_answers = defaultdict(list)
+    for question, answer, label in zip(questions, answers, labels):
+        if class_label.int2str(torch.tensor([label]))[0] == "entailment":
+            relevant_answers[question].append(answer)
+
+    for question, answer, label in zip(questions, answers, labels):
+        softmax_answers: List[Any] = answers.copy()
+        if class_label.int2str(torch.tensor([label]))[0] == "not_entailment":
+            continue
+        for relevant_answer in relevant_answers[question]:
+            softmax_answers.remove(relevant_answer)
+
+        softmax_answers.append(answer)
+        model_input = []
+        for a in softmax_answers:
+            model_input.append([question, a])
+        model_output = model(model_input, Task.QNLI)
+        loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1).to(device))
+        loss.backward()
+        del model_output
+
+
+def main():
     all_files = ""
     for file in Path(__file__).parent.resolve().glob('*.py'):
         with open(str(file), 'r', encoding='utf-8') as f:
             all_files += f.read()
     print(hashlib.md5(all_files.encode()).hexdigest())
-    print(f"------------------ training-start:  {training_start} --------------------------)")
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        torch.backends.cudnn.benchmark = True
+    NUM_EPOCHS = int(5)
+    parser = ArgumentParser()
+    parser.add_argument("--from-checkpoint")
+    args = parser.parse_args()
+
+    model = MT_BERT()
+    model.to(device)
+    optimizer = optim.Adamax(model.parameters(), lr=5e-5)
+    initial_epoch = 1
+    training_start = datetime.datetime.now().isoformat()
+
+    if args.from_checkpoint:
+        print("Loading from checkpoint")
+        checkpoint = torch.load(args.from_checkpoint, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        initial_epoch = checkpoint['epoch'] + 1
+        training_start = checkpoint["training_start"]
     else:
+        print("Starting training from scratch")
 
     print(f"------------------ training-start:  {training_start} --------------------------)")
 
@@ -44,31 +90,22 @@ if __name__ == '__main__':
 
     results_folder = Path(f"results_{training_start}")
     results_folder.mkdir(exist_ok=True)
-
     writer = SummaryWriter(str(results_folder / "tensorboard_log"))
-
-    model = MT_BERT()
-    model.to(device)
-
-    optimizer = optim.Adamax(model.parameters(), lr=5e-5)
 
     task_actions = []
     for task in iter(Task):
         train_loader = tasks_config[task]["train_loader"]
         task_actions.extend([task] * len(train_loader))
-
-    for epoch in range(1, NUM_EPOCHS + 1):
+    for epoch in range(initial_epoch, NUM_EPOCHS + 1):
 
         epoch_bar = tqdm(sample(task_actions, len(task_actions)))
         model.train()
 
         for task_action in epoch_bar:
             train_loader = tasks_config[task_action]["train_loader"]
-            epoch_bar.set_description(f"current task: {task_action.name}")
+            epoch_bar.set_description(f"current task: {task_action.name} in epoch:{epoch}")
 
             data = next(iter(train_loader))
-            batch_size = data['label'].size(0)
-            columns = tasks_config[task_action]["columns"]
 
             optimizer.zero_grad(set_to_none=True)
 
@@ -106,6 +143,7 @@ if __name__ == '__main__':
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
+            'training_start': training_start
         }, str(models_path / f'epoch_{epoch}.tar'))
 
         model.eval()
@@ -147,8 +185,12 @@ if __name__ == '__main__':
                         metric_result = metric_result[0]
                     val_results[task.name, metric.__name__] = metric_result
                     print(f"val_results[{task.name}, {metric.__name__}] = {val_results[task.name, metric.__name__]}")
-                    writer.add_scalar(f"{task.name}_{metric.__name__}", val_results[task.name, metric.__name__])
+                    writer.add_scalar(f"{task.name}_{metric.__name__}", val_results[task.name, metric.__name__], epoch)
         data_frame = pd.DataFrame(
             data=val_results,
             index=[epoch])
         data_frame.to_csv(str(results_folder / f"train_results.csv"), mode='a', index_label='Epoch')
+
+
+if __name__ == '__main__':
+    main()
