@@ -6,6 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from random import sample
 from typing import List, Any
+import pytorch_warmup as warmup
 
 import pandas as pd
 import scipy
@@ -63,6 +64,15 @@ def main():
     parser.add_argument("--from-checkpoint")
     args = parser.parse_args()
 
+    datasets_config = define_dataset_config()
+    tasks_config = define_tasks_config(datasets_config)
+
+    task_actions = []
+    for task in iter(Task):
+        train_loader = tasks_config[task]["train_loader"]
+        task_actions.extend([task] * len(train_loader))
+    total_steps = len(task_actions)
+
     model = MT_BERT()
     model.to(device)
     optimizer = optim.Adamax(model.parameters(), lr=5e-5)
@@ -76,13 +86,13 @@ def main():
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         initial_epoch = checkpoint['epoch'] + 1
         training_start = checkpoint["training_start"]
+        warmup_scheduler = None
     else:
         print("Starting training from scratch")
+        warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=(total_steps * NUM_EPOCHS) // 10)
 
     print(f"------------------ training-start:  {training_start} --------------------------)")
 
-    datasets_config = define_dataset_config()
-    tasks_config = define_tasks_config(datasets_config)
 
     losses = {'BCELoss': BCELoss(), 'CrossEntropyLoss': CrossEntropyLoss(), 'MSELoss': MSELoss()}
     for name, loss in losses.items():
@@ -133,6 +143,9 @@ def main():
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
             optimizer.step()
+
+            if warmup_scheduler:
+                warmup_scheduler.dampen()
 
         models_path = results_folder / "saved_models"
         models_path.mkdir(exist_ok=True)
@@ -187,7 +200,6 @@ def main():
             data=val_results,
             index=[epoch])
         data_frame.to_csv(str(results_folder / f"train_results.csv"), mode='a', index_label='Epoch')
-
 
 if __name__ == '__main__':
     main()
