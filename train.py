@@ -176,7 +176,9 @@ if __name__ == '__main__':
         model.eval()
         val_results = {}
         with torch.no_grad():
-            for task in iter(Task):
+            task_bar = tqdm(Task)
+            for task in task_bar:
+                task_bar.set_description(task.name)
                 val_loader = tasks_config[task]["val_loader"]
 
                 task_predicted_labels = torch.empty(0)
