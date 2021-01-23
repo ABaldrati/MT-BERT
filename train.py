@@ -6,20 +6,17 @@ from collections import defaultdict
 from pathlib import Path
 from random import sample
 from typing import List, Any
+
 import pandas as pd
 import scipy
 import torch
-from datasets import load_dataset, concatenate_datasets, ClassLabel
-from scipy.stats import pearsonr, spearmanr
-from sklearn.metrics import matthews_corrcoef, accuracy_score, f1_score
 from torch import optim
 from torch.nn import BCELoss, MSELoss, CrossEntropyLoss
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from model import MT_BERT
-from task import Task, TaskConfig, define_dataset_config, define_tasks_config
+from task import Task, define_dataset_config, define_tasks_config
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
