@@ -1,8 +1,11 @@
 import datetime
 import hashlib
 import operator
+from argparse import ArgumentParser
+from collections import defaultdict
 from pathlib import Path
 from random import sample
+from typing import List, Any
 import pandas as pd
 import scipy
 import torch
@@ -117,10 +120,7 @@ def main():
 
             if task_action == Task.QNLI:
                 class_label = tasks_config[task_action]["label_feature"]
-                output = compute_qnli_batch_output(data, class_label, model, losses[MT_BERT.loss_for_task(task_action)])
-                if output.size(0) == 0:
-                    continue
-                label = torch.ones(len(output)).to(device)
+                train_qnli_batch(data, class_label, model, losses[MT_BERT.loss_for_task(task_action)])
             else:
                 output = model(input_data, task_action)
 
