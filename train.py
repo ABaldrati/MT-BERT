@@ -3,8 +3,8 @@ import hashlib
 import operator
 from pathlib import Path
 from random import sample
-
 import pandas as pd
+import scipy
 import torch
 from datasets import load_dataset, concatenate_datasets, ClassLabel
 from scipy.stats import pearsonr, spearmanr
@@ -207,7 +207,11 @@ if __name__ == '__main__':
 
                 metrics = datasets_config[task].metrics
                 for metric in metrics:
-                    val_results[task.name, metric.__name__] = metric(task_labels, task_predicted_labels)
+                    metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
+                    if type(metric_result) == tuple or type(metric_result) == scipy.stats.stats.SpearmanrResult:
+                        metric_result = metric_result[0]
+                    val_results[task.name, metric.__name__] = metric_result
+                    print(f"val_results[{task.name}, {metric.__name__}] = {val_results[task.name, metric.__name__]}")
                     writer.add_scalar(f"{task.name}_{metric.__name__}", val_results[task.name, metric.__name__])
         data_frame = pd.DataFrame(
             data=val_results,
