@@ -32,76 +32,11 @@ if __name__ == '__main__':
         device = torch.device("cuda")
         torch.backends.cudnn.benchmark = True
     else:
-        device = torch.device("cpu")
 
-    datasets_config = {
-        Task.CoLA: TaskConfig(("glue", "cola"), ["label", "sentence"], batch_size=16, metrics=[matthews_corrcoef]),
-        Task.SST_2: TaskConfig(("glue", "sst2"), ["label", "sentence"], batch_size=16, metrics=[accuracy_score]),
-        Task.STS_B: TaskConfig(("glue", "stsb"), ["label", "sentence1", "sentence2"], batch_size=16,
-                               metrics=[pearsonr, spearmanr]),
-        Task.MNLI: TaskConfig(("glue", "mnli"), ["label", "hypothesis", "premise"], batch_size=16,
-                              metrics=[accuracy_score]),
-        Task.WNLI: TaskConfig(("glue", "wnli"), ["label", "sentence1", "sentence2"], batch_size=16,
-                              metrics=[accuracy_score]),
-        Task.QQP: TaskConfig(("glue", "qqp"), ["label", "question1", "question2"], batch_size=16,
-                             metrics=[accuracy_score, f1_score]),
-        Task.RTE: TaskConfig(("glue", "rte"), ["label", "sentence1", "sentence2"], batch_size=16,
-                             metrics=[accuracy_score]),
-        Task.MRPC: TaskConfig(("glue", "mrpc"), ["label", "sentence1", "sentence2"], batch_size=16,
-                              metrics=[accuracy_score, f1_score]),
-        Task.QNLI: TaskConfig(("glue", "qnli"), ["label", "question", "sentence"], batch_size=16,
-                              metrics=[accuracy_score]),
-        Task.SNLI: TaskConfig(("snli", "plain_text"), ["label", "hypothesis", "premise"], batch_size=16,
-                              metrics=[accuracy_score]),
-        Task.SciTail: TaskConfig(("scitail", "tsv_format"), ["label", "hypothesis", "premise"], batch_size=16,
-                                 metrics=[accuracy_score])
-    }
+    print(f"------------------ training-start:  {training_start} --------------------------)")
 
-    tasks_config = {}
-    for task, task_config in datasets_config.items():
-        dataset_config, columns = task_config.dataset_loading_args, task_config.columns
-        train_dataset = load_dataset(*dataset_config, split="train")
-
-        if task == Task.MNLI:
-            val_dataset_matched = load_dataset(*dataset_config, split="validation_matched")
-            val_dataset_mismatched = load_dataset(*dataset_config, split="validation_mismatched")
-
-            val_dataset_matched.set_format(columns=columns)
-            val_dataset_mismatched.set_format(columns=columns)
-
-            val_dataset = concatenate_datasets([val_dataset_matched, val_dataset_mismatched])
-        else:
-            val_dataset = load_dataset(*dataset_config, split="validation")
-
-        if task == Task.SciTail:
-            def label_mapper(x):
-                labels = ClassLabel(names=["neutral", "entails"])
-                return {"label": labels.str2int(x)}
-
-
-            train_dataset = train_dataset.map(label_mapper, input_columns=["label"])
-            val_dataset = val_dataset.map(label_mapper, input_columns=["label"])
-        elif task == Task.SNLI:
-            def label_filter(x):
-                return x != -1
-
-
-            train_dataset = train_dataset.filter(label_filter, input_columns=["label"])
-            val_dataset = val_dataset.filter(label_filter, input_columns=["label"])
-
-        train_dataset.set_format(columns=columns)
-        val_dataset.set_format(columns=columns)
-
-        val_loader = torch.utils.data.DataLoader(val_dataset, num_workers=4, batch_size=8, shuffle=False)
-        train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=1, batch_size=task_config.batch_size,
-                                                   shuffle=True)
-
-        tasks_config[task] = {
-            "label_feature": train_dataset.features["label"],
-            "columns": columns,
-            "train_loader": train_loader,
-            "val_loader": val_loader
-        }
+    datasets_config = define_dataset_config()
+    tasks_config = define_tasks_config(datasets_config)
 
     losses = {'BCELoss': BCELoss(), 'CrossEntropyLoss': CrossEntropyLoss(), 'MSELoss': MSELoss()}
     for name, loss in losses.items():
