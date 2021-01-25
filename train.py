@@ -1,4 +1,5 @@
 import datetime
+import gc
 import hashlib
 import operator
 from argparse import ArgumentParser
@@ -6,9 +7,9 @@ from collections import defaultdict
 from pathlib import Path
 from random import sample
 from typing import List, Any
-import pytorch_warmup as warmup
 
 import pandas as pd
+import pytorch_warmup as warmup
 import scipy
 import torch
 from torch import optim
@@ -46,10 +47,27 @@ def train_qnli_batch(batch, class_label, model, loss_function):
         model_input = []
         for a in softmax_answers:
             model_input.append([question, a])
-        model_output = model(model_input, Task.QNLI)
-        loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1).to(device))
-        loss.backward()
-        del model_output
+        out_of_memory = False
+        try:
+            model_output = model(model_input, Task.QNLI)
+            loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1).to(device))
+            loss.backward()
+            del model_output
+        except RuntimeError as e:
+            print(f"{e} \n ---------------------------  in task QNLI\n")
+            out_of_memory = True
+        try:
+            if out_of_memory:
+                gc.collect()
+                torch.cuda.empty_cache()
+                model_output = model(model_input[:len(model_input)//2], Task.QNLI)
+                loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1).to(device))
+                loss.backward()
+                del model_output
+        except RuntimeError as e:
+            gc.collect()
+            print(f"{e} \n ---------- Skipping batch\n")
+        torch.cuda.empty_cache()
 
 
 def main():
@@ -93,7 +111,6 @@ def main():
 
     print(f"------------------ training-start:  {training_start} --------------------------)")
 
-
     losses = {'BCELoss': BCELoss(), 'CrossEntropyLoss': CrossEntropyLoss(), 'MSELoss': MSELoss()}
     for name, loss in losses.items():
         losses[name].to(device)
@@ -122,6 +139,13 @@ def main():
             data_columns = [col for col in tasks_config[task_action]["columns"] if col != "label"]
             input_data = list(zip(*(data[col] for col in data_columns)))
 
+            label = data["label"]
+            if label.dtype == torch.float64:
+                label = label.to(torch.float32)
+            label = label.to(device)
+
+            task_criterion = losses[MT_BERT.loss_for_task(task_action)]
+
             if len(data_columns) == 1:
                 input_data = list(map(operator.itemgetter(0), input_data))
 
@@ -129,17 +153,42 @@ def main():
                 class_label = tasks_config[task_action]["label_feature"]
                 train_qnli_batch(data, class_label, model, losses[MT_BERT.loss_for_task(task_action)])
             else:
-                output = model(input_data, task_action)
+                out_of_memory = False
+                try:
+                    output = model(input_data, task_action)
+                    loss = task_criterion(output, label)
+                    loss.backward()
+                    del output
+                    torch.cuda.empty_cache()
+                except RuntimeError as e:
+                    out_of_memory = True
+                    print(f"{e} \n------------------------------- in current task: {task_action.name}\n")
 
-                label = data["label"]
-                if label.dtype == torch.float64:
-                    label = label.to(torch.float32)
-                label = label.to(device)
+                try:
+                    if out_of_memory:
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        optimizer.zero_grad(set_to_none=True)
+                        current_batch_size = len(input_data)
+                        first_half_input_data = input_data[:current_batch_size // 2]
+                        first_half_label = label[:current_batch_size // 2]
+                        second_half_input_data = input_data[round(current_batch_size / 2):]
+                        second_half_label = label[round(current_batch_size / 2):]
 
-                task_criterion = losses[MT_BERT.loss_for_task(task_action)]
-
-                loss = task_criterion(output, label)
-                loss.backward()
+                        output_first_half = model(first_half_input_data, task_action)
+                        loss_first_half = task_criterion(output_first_half, first_half_label)
+                        loss_first_half.backward()
+                        del output_first_half
+                        torch.cuda.empty_cache()
+                        output_second_half = model(second_half_input_data, task_action)
+                        loss_second_half = task_criterion(output_second_half, second_half_label)
+                        loss_second_half.backward()
+                        del output_second_half
+                        torch.cuda.empty_cache()
+                except RuntimeError as e:
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    print(f"{e} \n ---------- Skipping batch\n")
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
             optimizer.step()
@@ -200,6 +249,7 @@ def main():
             data=val_results,
             index=[epoch])
         data_frame.to_csv(str(results_folder / f"train_results.csv"), mode='a', index_label='Epoch')
+
 
 if __name__ == '__main__':
     main()
