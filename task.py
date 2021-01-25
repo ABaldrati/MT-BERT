@@ -72,12 +72,20 @@ def define_tasks_config(datasets_config):
             val_dataset_matched = load_dataset(*dataset_config, split="validation_matched")
             val_dataset_mismatched = load_dataset(*dataset_config, split="validation_mismatched")
 
+            test_dataset_matched = load_dataset(*dataset_config, split="test_matched")
+            test_dataset_mismatched = load_dataset(*dataset_config, split="test_mismatched")
+
             val_dataset_matched.set_format(columns=columns)
             val_dataset_mismatched.set_format(columns=columns)
 
+            test_dataset_matched.set_format(columns=columns)
+            test_dataset_mismatched.set_format(columns=columns)
+
             val_dataset = concatenate_datasets([val_dataset_matched, val_dataset_mismatched])
+            test_dataset = concatenate_datasets([test_dataset_matched, test_dataset_mismatched])
         else:
             val_dataset = load_dataset(*dataset_config, split="validation")
+            test_dataset = load_dataset(*dataset_config, split='test')
 
         if task == Task.SciTail:
             def label_mapper(x):
@@ -92,18 +100,22 @@ def define_tasks_config(datasets_config):
 
             train_dataset = train_dataset.filter(label_filter, input_columns=["label"])
             val_dataset = val_dataset.filter(label_filter, input_columns=["label"])
+            test_dataset = test_dataset.filter(label_filter, input_columns=["label"])
 
         train_dataset.set_format(columns=columns)
         val_dataset.set_format(columns=columns)
+        test_dataset.set_format(columns=columns)
 
-        val_loader = torch.utils.data.DataLoader(val_dataset, num_workers=4, batch_size=8, shuffle=False)
         train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=1, batch_size=task_config.batch_size,
                                                    shuffle=True)
+        val_loader = torch.utils.data.DataLoader(val_dataset, num_workers=4, batch_size=8, shuffle=False)
+        test_loader = torch.utils.data.DataLoader(test_dataset, num_workers=4, batch_size=8, shuffle=False)
 
         tasks_config[task] = {
             "label_feature": train_dataset.features["label"],
             "columns": columns,
             "train_loader": train_loader,
-            "val_loader": val_loader
+            "val_loader": val_loader,
+            "test_loader" : test_loader
         }
     return tasks_config
