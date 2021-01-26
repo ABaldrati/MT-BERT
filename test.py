@@ -82,7 +82,7 @@ def main():
                 print(f"test_results[{task.name}, {metric.__name__}] = {test_results[task.name, metric.__name__]}")
     data_frame = pd.DataFrame(
         data=test_results)
-    data_frame.to_csv(str(results_folder / f"train_results.csv"), mode='a', index_label='Epoch')
+    data_frame.to_csv(str(results_folder / f"test_results.csv"), mode='a', index_label='Epoch')
 
 
 if __name__ == '__main__':
