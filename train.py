@@ -104,8 +104,10 @@ def main():
         initial_epoch = checkpoint['epoch'] + 1
         training_start = checkpoint["training_start"]
         warmup_scheduler = None
+        lr_scheduler = None
     else:
         print("Starting training from scratch")
+        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda step: 1.0)
         warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=(total_steps * NUM_EPOCHS) // 10)
 
     print(f"------------------ training-start:  {training_start} --------------------------)")
@@ -191,6 +193,7 @@ def main():
             optimizer.step()
 
             if warmup_scheduler:
+                lr_scheduler.step()
                 warmup_scheduler.dampen()
 
         results_folder = Path(f"results_{training_start}")
