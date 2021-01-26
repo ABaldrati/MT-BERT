@@ -14,7 +14,6 @@ import scipy
 import torch
 from torch import optim
 from torch.nn import BCELoss, MSELoss, CrossEntropyLoss
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from model import MT_BERT
@@ -60,7 +59,7 @@ def train_qnli_batch(batch, class_label, model, loss_function):
             if out_of_memory:
                 gc.collect()
                 torch.cuda.empty_cache()
-                model_output = model(model_input[len(model_input)//2:], Task.QNLI)
+                model_output = model(model_input[len(model_input) // 2:], Task.QNLI)
                 loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1).to(device))
                 loss.backward()
                 del model_output
