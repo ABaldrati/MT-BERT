@@ -115,10 +115,6 @@ def main():
     for name, loss in losses.items():
         losses[name].to(device)
 
-    results_folder = Path(f"results_{training_start}")
-    results_folder.mkdir(exist_ok=True)
-    writer = SummaryWriter(str(results_folder / "tensorboard_log"))
-
     task_actions = []
     for task in iter(Task):
         train_loader = tasks_config[task]["train_loader"]
@@ -180,11 +176,13 @@ def main():
                         loss_first_half.backward()
                         del output_first_half
                         torch.cuda.empty_cache()
+
                         output_second_half = model(second_half_input_data, task_action)
                         loss_second_half = task_criterion(output_second_half, second_half_label)
                         loss_second_half.backward()
                         del output_second_half
                         torch.cuda.empty_cache()
+
                 except RuntimeError as e:
                     gc.collect()
                     torch.cuda.empty_cache()
@@ -195,6 +193,9 @@ def main():
 
             if warmup_scheduler:
                 warmup_scheduler.dampen()
+
+        results_folder = Path(f"results_{training_start}")
+        results_folder.mkdir(exist_ok=True)
 
         models_path = results_folder / "saved_models"
         models_path.mkdir(exist_ok=True)
