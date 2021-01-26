@@ -247,7 +247,6 @@ def main():
                         metric_result = metric_result[0]
                     val_results[task.name, metric.__name__] = metric_result
                     print(f"val_results[{task.name}, {metric.__name__}] = {val_results[task.name, metric.__name__]}")
-                    writer.add_scalar(f"{task.name}_{metric.__name__}", val_results[task.name, metric.__name__], epoch)
         data_frame = pd.DataFrame(
             data=val_results,
             index=[epoch])
