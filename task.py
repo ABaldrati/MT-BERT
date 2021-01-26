@@ -38,25 +38,25 @@ class TaskConfig:
 
 def define_dataset_config():
     datasets_config = {
-        Task.CoLA: TaskConfig(("glue", "cola"), ["label", "sentence"], batch_size=16, metrics=[matthews_corrcoef]),
-        Task.SST_2: TaskConfig(("glue", "sst2"), ["label", "sentence"], batch_size=16, metrics=[accuracy_score]),
-        Task.STS_B: TaskConfig(("glue", "stsb"), ["label", "sentence1", "sentence2"], batch_size=16,
+        Task.CoLA: TaskConfig(("glue", "cola"), ["label", "sentence"], batch_size=32, metrics=[matthews_corrcoef]),
+        Task.SST_2: TaskConfig(("glue", "sst2"), ["label", "sentence"], batch_size=32, metrics=[accuracy_score]),
+        Task.STS_B: TaskConfig(("glue", "stsb"), ["label", "sentence1", "sentence2"], batch_size=32,
                                metrics=[pearsonr, spearmanr]),
-        Task.MNLI: TaskConfig(("glue", "mnli"), ["label", "hypothesis", "premise"], batch_size=16,
+        Task.MNLI: TaskConfig(("glue", "mnli"), ["label", "hypothesis", "premise"], batch_size=32,
                               metrics=[accuracy_score]),
-        Task.WNLI: TaskConfig(("glue", "wnli"), ["label", "sentence1", "sentence2"], batch_size=16,
+        Task.WNLI: TaskConfig(("glue", "wnli"), ["label", "sentence1", "sentence2"], batch_size=32,
                               metrics=[accuracy_score]),
-        Task.QQP: TaskConfig(("glue", "qqp"), ["label", "question1", "question2"], batch_size=16,
+        Task.QQP: TaskConfig(("glue", "qqp"), ["label", "question1", "question2"], batch_size=32,
                              metrics=[accuracy_score, f1_score]),
-        Task.RTE: TaskConfig(("glue", "rte"), ["label", "sentence1", "sentence2"], batch_size=16,
+        Task.RTE: TaskConfig(("glue", "rte"), ["label", "sentence1", "sentence2"], batch_size=32,
                              metrics=[accuracy_score]),
-        Task.MRPC: TaskConfig(("glue", "mrpc"), ["label", "sentence1", "sentence2"], batch_size=16,
+        Task.MRPC: TaskConfig(("glue", "mrpc"), ["label", "sentence1", "sentence2"], batch_size=32,
                               metrics=[accuracy_score, f1_score]),
-        Task.QNLI: TaskConfig(("glue", "qnli"), ["label", "question", "sentence"], batch_size=16,
+        Task.QNLI: TaskConfig(("glue", "qnli"), ["label", "question", "sentence"], batch_size=32,
                               metrics=[accuracy_score]),
-        Task.SNLI: TaskConfig(("snli", "plain_text"), ["label", "hypothesis", "premise"], batch_size=16,
+        Task.SNLI: TaskConfig(("snli", "plain_text"), ["label", "hypothesis", "premise"], batch_size=32,
                               metrics=[accuracy_score]),
-        Task.SciTail: TaskConfig(("scitail", "tsv_format"), ["label", "hypothesis", "premise"], batch_size=16,
+        Task.SciTail: TaskConfig(("scitail", "tsv_format"), ["label", "hypothesis", "premise"], batch_size=32,
                                  metrics=[accuracy_score])
     }
     return datasets_config
