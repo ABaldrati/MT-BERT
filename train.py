@@ -1,9 +1,11 @@
 import datetime
 import gc
 import hashlib
+import math
 import operator
 from argparse import ArgumentParser
 from collections import defaultdict
+from functools import wraps
 from pathlib import Path
 from random import sample
 from typing import List, Any
@@ -26,10 +28,83 @@ else:
     device = torch.device("cpu")
 
 
-def train_qnli_batch(batch, class_label, model, loss_function):
-    questions = batch["question"]
-    answers = batch["sentence"]
-    labels = batch["label"]
+def split_n(chunk_length, sequence):
+    if type(sequence) == dict:
+        key_splits = {}
+        for key, subseq in sequence.items():
+            key_splits[key] = split_n(chunk_length, subseq)
+
+        splits_count = len(next(iter(key_splits.values())))
+        splits = []
+
+        # Now "transpose" from dict of chunked lists to list of dicts (each with a chunk)
+        for i in range(splits_count):
+            s = {}
+            for key, subseq in key_splits.items():
+                s[key] = subseq[i]
+
+            splits.append(s)
+
+        return splits
+
+    else:
+        splits = []
+
+        splits_count = math.ceil(len(sequence) / chunk_length)
+        for i in range(splits_count):
+            splits.append(sequence[i * chunk_length:min(len(sequence), (i + 1) * chunk_length)])
+
+        return splits
+
+
+def retry_with_batchsize_halving(train_task=None):
+    def inner(train_fn):
+        @wraps(train_fn)
+        def wrapper(*args, **kwargs):
+            retry = True
+            task = train_task or kwargs.get("task")
+            input_data = kwargs["input_data"]
+            batch_size = len(input_data)
+            label = kwargs.get("label", [0] * batch_size)
+            optimizer = kwargs["optimizer"]
+
+            while retry and batch_size > 0:
+                microbatches = split_n(batch_size, input_data)
+                microlabels = split_n(batch_size, label)
+
+                for microbatch, microlabel in zip(microbatches, microlabels):
+                    try:
+                        new_kwargs = dict(kwargs, input_data=microbatch, label=microlabel)
+                        train_fn(*args, **new_kwargs)
+                    except RuntimeError as e:
+                        print(f"\n\n{e} Error in current task {task} with batch size {batch_size}. Retrying...")
+                        batch_size //= 2
+                        optimizer.zero_grad(set_to_none=True)
+                        break
+                    finally:
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                    retry = False
+
+            if retry:
+                print(f"Skipping {task} batch... (size: {batch_size})")
+        return wrapper
+    return inner
+
+
+@retry_with_batchsize_halving()
+def train_minibatch(input_data, task, label, model, task_criterion, **kwargs):
+    output = model(input_data, task)
+    loss = task_criterion(output, label)
+    loss.backward()
+    del output
+
+
+@retry_with_batchsize_halving(train_task=Task.QNLI)
+def train_qnli_batch(input_data, class_label, model, loss_function, **kwargs):
+    questions = input_data["question"]
+    answers = input_data["sentence"]
+    labels = input_data["label"]
     relevant_answers = defaultdict(list)
     for question, answer, label in zip(questions, answers, labels):
         if class_label.int2str(torch.tensor([label]))[0] == "entailment":
@@ -46,27 +121,11 @@ def train_qnli_batch(batch, class_label, model, loss_function):
         model_input = []
         for a in softmax_answers:
             model_input.append([question, a])
-        out_of_memory = False
-        try:
-            model_output = model(model_input, Task.QNLI)
-            loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1).to(device))
-            loss.backward()
-            del model_output
-        except RuntimeError as e:
-            print(f"{e} \n ---------------------------  in task QNLI\n")
-            out_of_memory = True
-        try:
-            if out_of_memory:
-                gc.collect()
-                torch.cuda.empty_cache()
-                model_output = model(model_input[len(model_input) // 2:], Task.QNLI)
-                loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1).to(device))
-                loss.backward()
-                del model_output
-        except RuntimeError as e:
-            gc.collect()
-            print(f"{e} \n ---------- Skipping batch\n")
-        torch.cuda.empty_cache()
+
+        model_output = model(model_input, Task.QNLI)
+        loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1, device=device))
+        loss.backward()
+        del model_output
 
 
 def main():
@@ -148,46 +207,9 @@ def main():
 
             if task_action == Task.QNLI:
                 class_label = tasks_config[task_action]["label_feature"]
-                train_qnli_batch(data, class_label, model, losses[MT_BERT.loss_for_task(task_action)])
+                train_qnli_batch(input_data=data, class_label=class_label, model=model, loss_function=losses[MT_BERT.loss_for_task(task_action)], optimizer=optimizer)
             else:
-                out_of_memory = False
-                try:
-                    output = model(input_data, task_action)
-                    loss = task_criterion(output, label)
-                    loss.backward()
-                    del output
-                    torch.cuda.empty_cache()
-                except RuntimeError as e:
-                    out_of_memory = True
-                    print(f"{e} \n------------------------------- in current task: {task_action.name}\n")
-
-                try:
-                    if out_of_memory:
-                        gc.collect()
-                        torch.cuda.empty_cache()
-                        optimizer.zero_grad(set_to_none=True)
-                        current_batch_size = len(input_data)
-                        first_half_input_data = input_data[:current_batch_size // 2]
-                        first_half_label = label[:current_batch_size // 2]
-                        second_half_input_data = input_data[round(current_batch_size / 2):]
-                        second_half_label = label[round(current_batch_size / 2):]
-
-                        output_first_half = model(first_half_input_data, task_action)
-                        loss_first_half = task_criterion(output_first_half, first_half_label)
-                        loss_first_half.backward()
-                        del output_first_half
-                        torch.cuda.empty_cache()
-
-                        output_second_half = model(second_half_input_data, task_action)
-                        loss_second_half = task_criterion(output_second_half, second_half_label)
-                        loss_second_half.backward()
-                        del output_second_half
-                        torch.cuda.empty_cache()
-
-                except RuntimeError as e:
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    print(f"{e} \n ---------- Skipping batch\n")
+                train_minibatch(input_data=input_data, task=task_action, label=label, model=model, task_criterion=task_criterion, optimizer=optimizer)
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
             optimizer.step()
