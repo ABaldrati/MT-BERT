@@ -7,17 +7,17 @@ from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef
 
 
 class Task(Enum):
-    CoLA = 1
-    SST_2 = 2
-    STS_B = 3
-    MNLI = 4
-    RTE = 5
-    WNLI = 6
-    QQP = 7
-    MRPC = 8
-    QNLI = 9
-    SNLI = 10
-    SciTail = 11
+    CoLA = 'CoLA'
+    SST_2 = 'SST-2'
+    STS_B = 'STS-B'
+    MNLI = 'MNLI-m'
+    RTE = 'RTE'
+    WNLI = 'WNLI'
+    QQP = 'QQP'
+    MRPC = 'MPRC'
+    QNLI = 'QNLI'
+    SNLI = 'SNLI'
+    SciTail = 'SciTail'
 
     def num_classes(self):
         if self == Task.MNLI or self == Task.SNLI:
@@ -94,6 +94,7 @@ def define_tasks_config(datasets_config):
 
             train_dataset = train_dataset.map(label_mapper, input_columns=["label"])
             val_dataset = val_dataset.map(label_mapper, input_columns=["label"])
+            test_dataset = test_dataset.map(label_mapper, input_columns=["label"])
         elif task == Task.SNLI:
             def label_filter(x):
                 return x != -1
@@ -104,7 +105,7 @@ def define_tasks_config(datasets_config):
 
         train_dataset.set_format(columns=columns)
         val_dataset.set_format(columns=columns)
-        test_dataset.set_format(columns=columns)
+        test_dataset.set_format(columns=columns.copy().append('idx'))
 
         train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=1, batch_size=task_config.batch_size,
                                                    shuffle=True)
@@ -116,6 +117,7 @@ def define_tasks_config(datasets_config):
             "columns": columns,
             "train_loader": train_loader,
             "val_loader": val_loader,
-            "test_loader" : test_loader
+            "test_loader": test_loader,
+            "test_dataset": test_dataset
         }
     return tasks_config

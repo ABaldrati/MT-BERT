@@ -3,7 +3,6 @@ import operator
 from argparse import ArgumentParser
 from pathlib import Path
 import pandas as pd
-import scipy
 import torch
 from tqdm import tqdm
 
@@ -40,6 +39,8 @@ def main():
 
     results_folder = Path(f"results_{training_start}")
     results_folder.mkdir(exist_ok=True)
+    glue_results_folder = Path(results_folder / "glue_submission")
+    glue_results_folder.mkdir(exist_ok=True)
 
     model.eval()
     test_results = {}
@@ -48,13 +49,18 @@ def main():
         for task in task_bar:
             task_bar.set_description(task.name)
             test_loader = tasks_config[task]["test_loader"]
+            class_label = tasks_config[task]["test_dataset"].features['label']
 
             task_predicted_labels = torch.empty(0, device=device)
             task_labels = torch.empty(0, device=device)
+            indexes = torch.empty(0, device=device)
             for test_data in test_loader:
                 data_columns = [col for col in tasks_config[task]["columns"] if col != "label"]
                 input_data = list(zip(*(test_data[col] for col in data_columns)))
                 label = test_data["label"].to(device)
+
+                if task != task.SciTail and task != task.SNLI:
+                    indexes = torch.hstack((indexes, test_data['idx'].to(device)))
 
                 if len(data_columns) == 1:
                     input_data = list(map(operator.itemgetter(0), input_data))
@@ -74,15 +80,25 @@ def main():
                 task_labels = torch.hstack((task_labels, label))
 
             metrics = datasets_config[task].metrics
-            for metric in metrics:
-                metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
-                if type(metric_result) == tuple or type(metric_result) == scipy.stats.stats.SpearmanrResult:
-                    metric_result = metric_result[0]
-                test_results[task.name, metric.__name__] = metric_result
-                print(f"test_results[{task.name}, {metric.__name__}] = {test_results[task.name, metric.__name__]}")
+            if task == task.SciTail or task == task.SNLI:
+                for metric in metrics:
+                    metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
+                    test_results[task.name, metric.__name__] = metric_result
+                    print(f"test_results[{task.name}, {metric.__name__}] = {test_results[task.name, metric.__name__]}")
+            else:
+                if task == task.QNLI or task == task.MNLI or task == task.RTE:
+                    task_predicted_labels = class_label.int2str(task_predicted_labels)
+                elif task != task.STS_B:
+                    task_predicted_labels = task_predicted_labels.cpu().to(torch.int8)
+                else:
+                    task_predicted_labels = task_predicted_labels.cpu()
+                data_frame = pd.DataFrame(data={'index': indexes.cpu().to(torch.int32),
+                                                'prediction': task_predicted_labels})
+
+                data_frame.to_csv(str(glue_results_folder / f"{task.value}.tsv"), sep='\t', index=False)
     data_frame = pd.DataFrame(
-        data=test_results)
-    data_frame.to_csv(str(results_folder / f"test_results.csv"), mode='a', index_label='Epoch')
+        data=test_results, index=[0])
+    data_frame.to_csv(str(results_folder / f"Scitail_snli_results.csv"), mode='a', index_label='Epoch')
 
 
 if __name__ == '__main__':
