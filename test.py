@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from model import MT_BERT
 from task import define_dataset_config, Task, define_tasks_config
+from utils import stream_redirect_tqdm
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -46,57 +47,58 @@ def main():
     model.eval()
     test_results = {}
     with torch.no_grad():
-        task_bar = tqdm(Task)
-        for task in task_bar:
-            task_bar.set_description(task.name)
-            test_loader = tasks_config[task]["test_loader"]
-            class_label = tasks_config[task]["test_dataset"].features['label']
+        with stream_redirect_tqdm() as orig_stdout:
+            task_bar = tqdm(Task, file=orig_stdout)
+            for task in task_bar:
+                task_bar.set_description(task.name)
+                test_loader = tasks_config[task]["test_loader"]
+                class_label = tasks_config[task]["test_dataset"].features['label']
 
-            task_predicted_labels = torch.empty(0, device=device)
-            task_labels = torch.empty(0, device=device)
-            indexes = torch.empty(0, device=device)
-            for test_data in test_loader:
-                data_columns = [col for col in tasks_config[task]["columns"] if col != "label"]
-                input_data = list(zip(*(test_data[col] for col in data_columns)))
-                label = test_data["label"].to(device)
+                task_predicted_labels = torch.empty(0, device=device)
+                task_labels = torch.empty(0, device=device)
+                indexes = torch.empty(0, device=device)
+                for test_data in test_loader:
+                    data_columns = [col for col in tasks_config[task]["columns"] if col != "label"]
+                    input_data = list(zip(*(test_data[col] for col in data_columns)))
+                    label = test_data["label"].to(device)
 
-                if task != task.SciTail and task != task.SNLI:
-                    indexes = torch.hstack((indexes, test_data['idx'].to(device)))
+                    if task != task.SciTail and task != task.SNLI:
+                        indexes = torch.hstack((indexes, test_data['idx'].to(device)))
 
-                if len(data_columns) == 1:
-                    input_data = list(map(operator.itemgetter(0), input_data))
+                    if len(data_columns) == 1:
+                        input_data = list(map(operator.itemgetter(0), input_data))
 
-                model_output = model(input_data, task)
+                    model_output = model(input_data, task)
 
-                if task == Task.QNLI:
-                    predicted_label = torch.round(model_output)
-                    predicted_label = torch.logical_not(predicted_label)
-                    predicted_label.to(torch.int8)
-                elif task.num_classes() > 1:
-                    predicted_label = torch.argmax(model_output, -1)
+                    if task == Task.QNLI:
+                        predicted_label = torch.round(model_output)
+                        predicted_label = torch.logical_not(predicted_label)
+                        predicted_label.to(torch.int8)
+                    elif task.num_classes() > 1:
+                        predicted_label = torch.argmax(model_output, -1)
+                    else:
+                        predicted_label = model_output
+
+                    task_predicted_labels = torch.hstack((task_predicted_labels, predicted_label.view(-1)))
+                    task_labels = torch.hstack((task_labels, label))
+
+                metrics = datasets_config[task].metrics
+                if task == task.SciTail or task == task.SNLI:
+                    for metric in metrics:
+                        metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
+                        test_results[task.name, metric.__name__] = metric_result
+                        print(f"test_results[{task.name}, {metric.__name__}] = {test_results[task.name, metric.__name__]}")
                 else:
-                    predicted_label = model_output
+                    if task == task.QNLI or task == task.MNLIm or task.MNLImm or task.AX or task == task.RTE:
+                        task_predicted_labels = class_label.int2str(task_predicted_labels)
+                    elif task != task.STS_B:
+                        task_predicted_labels = task_predicted_labels.cpu().to(torch.int8)
+                    else:
+                        task_predicted_labels = task_predicted_labels.cpu()
+                    data_frame = pd.DataFrame(data={'index': indexes.cpu().to(torch.int32),
+                                                    'prediction': task_predicted_labels})
 
-                task_predicted_labels = torch.hstack((task_predicted_labels, predicted_label.view(-1)))
-                task_labels = torch.hstack((task_labels, label))
-
-            metrics = datasets_config[task].metrics
-            if task == task.SciTail or task == task.SNLI:
-                for metric in metrics:
-                    metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
-                    test_results[task.name, metric.__name__] = metric_result
-                    print(f"test_results[{task.name}, {metric.__name__}] = {test_results[task.name, metric.__name__]}")
-            else:
-                if task == task.QNLI or task == task.MNLIm or task.MNLImm or task.AX or task == task.RTE:
-                    task_predicted_labels = class_label.int2str(task_predicted_labels)
-                elif task != task.STS_B:
-                    task_predicted_labels = task_predicted_labels.cpu().to(torch.int8)
-                else:
-                    task_predicted_labels = task_predicted_labels.cpu()
-                data_frame = pd.DataFrame(data={'index': indexes.cpu().to(torch.int32),
-                                                'prediction': task_predicted_labels})
-
-                data_frame.to_csv(str(glue_results_folder / f"{task.value}.tsv"), sep='\t', index=False)
+                    data_frame.to_csv(str(glue_results_folder / f"{task.value}.tsv"), sep='\t', index=False)
     data_frame = pd.DataFrame(
         data=test_results, index=[0])
     data_frame.to_csv(str(results_folder / f"Scitail_snli_results.csv"), mode='a', index_label='Epoch')
