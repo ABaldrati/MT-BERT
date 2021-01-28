@@ -87,7 +87,7 @@ def main():
                     test_results[task.name, metric.__name__] = metric_result
                     print(f"test_results[{task.name}, {metric.__name__}] = {test_results[task.name, metric.__name__]}")
             else:
-                if task == task.QNLI or task == task.MNLI or task == task.RTE:
+                if task == task.QNLI or task == task.MNLIm or task.MNLImm or task.AX or task == task.RTE:
                     task_predicted_labels = class_label.int2str(task_predicted_labels)
                 elif task != task.STS_B:
                     task_predicted_labels = task_predicted_labels.cpu().to(torch.int8)

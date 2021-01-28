@@ -4,13 +4,15 @@ import torch
 from datasets import load_dataset, concatenate_datasets, ClassLabel
 from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef
+from torch.utils.data import TensorDataset
 
 
 class Task(Enum):
     CoLA = 'CoLA'
     SST_2 = 'SST-2'
     STS_B = 'STS-B'
-    MNLI = 'MNLI-m'
+    MNLIm = 'MNLI-m'
+    MNLImm = 'MNLI-mm'
     RTE = 'RTE'
     WNLI = 'WNLI'
     QQP = 'QQP'
@@ -18,6 +20,7 @@ class Task(Enum):
     QNLI = 'QNLI'
     SNLI = 'SNLI'
     SciTail = 'SciTail'
+    AX = 'AX'
 
     def num_classes(self):
         if self == Task.MNLI or self == Task.SNLI:
@@ -42,8 +45,10 @@ def define_dataset_config():
         Task.SST_2: TaskConfig(("glue", "sst2"), ["label", "sentence"], batch_size=32, metrics=[accuracy_score]),
         Task.STS_B: TaskConfig(("glue", "stsb"), ["label", "sentence1", "sentence2"], batch_size=32,
                                metrics=[pearsonr, spearmanr]),
-        Task.MNLI: TaskConfig(("glue", "mnli"), ["label", "hypothesis", "premise"], batch_size=32,
-                              metrics=[accuracy_score]),
+        Task.MNLIm: TaskConfig(("glue", "mnli"), ["label", "hypothesis", "premise"], batch_size=32,
+                               metrics=[accuracy_score]),
+        Task.MNLImm: TaskConfig(("glue", "mnli"), ["label", "hypothesis", "premise"], batch_size=32,
+                                metrics=[accuracy_score]),
         Task.WNLI: TaskConfig(("glue", "wnli"), ["label", "sentence1", "sentence2"], batch_size=32,
                               metrics=[accuracy_score]),
         Task.QQP: TaskConfig(("glue", "qqp"), ["label", "question1", "question2"], batch_size=32,
@@ -57,7 +62,9 @@ def define_dataset_config():
         Task.SNLI: TaskConfig(("snli", "plain_text"), ["label", "hypothesis", "premise"], batch_size=32,
                               metrics=[accuracy_score]),
         Task.SciTail: TaskConfig(("scitail", "tsv_format"), ["label", "hypothesis", "premise"], batch_size=32,
-                                 metrics=[accuracy_score])
+                                 metrics=[accuracy_score]),
+        Task.AX: TaskConfig(("glue", "ax"), ["label", "hypothesis", "premise"], batch_size=32,
+                            metrics=[matthews_corrcoef]),
     }
     return datasets_config
 
@@ -66,26 +73,32 @@ def define_tasks_config(datasets_config):
     tasks_config = {}
     for task, task_config in datasets_config.items():
         dataset_config, columns = task_config.dataset_loading_args, task_config.columns
-        train_dataset = load_dataset(*dataset_config, split="train")
 
-        if task == Task.MNLI:
-            val_dataset_matched = load_dataset(*dataset_config, split="validation_matched")
-            val_dataset_mismatched = load_dataset(*dataset_config, split="validation_mismatched")
-
-            test_dataset_matched = load_dataset(*dataset_config, split="test_matched")
-            test_dataset_mismatched = load_dataset(*dataset_config, split="test_mismatched")
-
-            val_dataset_matched.set_format(columns=columns)
-            val_dataset_mismatched.set_format(columns=columns)
-
-            test_dataset_matched.set_format(columns=columns)
-            test_dataset_mismatched.set_format(columns=columns)
-
-            val_dataset = concatenate_datasets([val_dataset_matched, val_dataset_mismatched])
-            test_dataset = concatenate_datasets([test_dataset_matched, test_dataset_mismatched])
+        if task == Task.MNLIm:
+            train_dataset = load_dataset(*dataset_config, split="train")
+            val_dataset = load_dataset(*dataset_config, split="validation_matched")
+            test_dataset = load_dataset(*dataset_config, split="test_matched")
+            train_dataset.set_format(columns=columns)
+            val_dataset.set_format(columns=columns)
+            test_dataset.set_format(columns=columns.copy().append('idx'))
+        elif task == Task.MNLImm:
+            val_dataset = load_dataset(*dataset_config, split="validation_mismatched")
+            test_dataset = load_dataset(*dataset_config, split="test_mismatched")
+            val_dataset.set_format(columns=columns)
+            test_dataset.set_format(columns=columns.copy().append('idx'))
+            train_dataset = TensorDataset(torch.empty(0))
+        elif task == Task.AX:
+            test_dataset = load_dataset(*dataset_config, split='test')
+            test_dataset.set_format(columns=columns.copy().append('idx'))
+            val_dataset = TensorDataset(torch.empty(0))
+            train_dataset = TensorDataset(torch.empty(0))
         else:
+            train_dataset = load_dataset(*dataset_config, split="train")
             val_dataset = load_dataset(*dataset_config, split="validation")
             test_dataset = load_dataset(*dataset_config, split='test')
+            train_dataset.set_format(columns=columns)
+            val_dataset.set_format(columns=columns)
+            test_dataset.set_format(columns=columns.copy().append('idx'))
 
         if task == Task.SciTail:
             def label_mapper(x):
@@ -102,10 +115,6 @@ def define_tasks_config(datasets_config):
             train_dataset = train_dataset.filter(label_filter, input_columns=["label"])
             val_dataset = val_dataset.filter(label_filter, input_columns=["label"])
             test_dataset = test_dataset.filter(label_filter, input_columns=["label"])
-
-        train_dataset.set_format(columns=columns)
-        val_dataset.set_format(columns=columns)
-        test_dataset.set_format(columns=columns.copy().append('idx'))
 
         train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=1, batch_size=task_config.batch_size,
                                                    shuffle=True)

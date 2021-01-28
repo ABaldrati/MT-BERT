@@ -141,7 +141,7 @@ class MT_BERT(nn.Module):
             return self.SST_2(cls_embedding)
         elif task == Task.STS_B:
             return self.STS_B(cls_embedding)
-        elif task == Task.MNLI:
+        elif task == Task.MNLIm or task == Task.MNLImm or task == task.AX:
             premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
             return self.MNLI(premises, hypotheses)
         elif task == Task.RTE:
@@ -171,7 +171,7 @@ class MT_BERT(nn.Module):
             Task.CoLA: "CrossEntropyLoss",
             Task.SST_2: "CrossEntropyLoss",
             Task.STS_B: "MSELoss",
-            Task.MNLI: "CrossEntropyLoss",
+            Task.MNLIm: "CrossEntropyLoss",
             Task.WNLI: "CrossEntropyLoss",
             Task.QQP: "CrossEntropyLoss",
             Task.MRPC: "CrossEntropyLoss",
