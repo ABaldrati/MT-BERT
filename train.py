@@ -207,7 +207,7 @@ def main():
 
             if task_action == Task.QNLI:
                 class_label = tasks_config[task_action]["label_feature"]
-                train_qnli_batch(input_data=data, class_label=class_label, model=model, loss_function=losses[MT_BERT.loss_for_task(task_action)], optimizer=optimizer)
+                train_qnli_batch(input_data=data, class_label=class_label, model=model, loss_function=task_criterion, optimizer=optimizer)
             else:
                 train_minibatch(input_data=input_data, task=task_action, label=label, model=model, task_criterion=task_criterion, optimizer=optimizer)
 
