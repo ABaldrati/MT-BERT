@@ -36,10 +36,11 @@ def main():
     saved_model = torch.load(args.model, map_location=device)
     model.load_state_dict(saved_model['model_state_dict'])
     training_start = saved_model["training_start"]
+    epoch = saved_model['epoch']
 
     results_folder = Path(f"results_{training_start}")
     results_folder.mkdir(exist_ok=True)
-    glue_results_folder = Path(results_folder / "glue_submission")
+    glue_results_folder = Path(results_folder / f"glue_submission_epoch:{epoch}")
     glue_results_folder.mkdir(exist_ok=True)
 
     model.eval()
