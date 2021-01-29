@@ -85,7 +85,8 @@ def retry_with_batchsize_halving(train_task=None):
                     finally:
                         gc.collect()
                         torch.cuda.empty_cache()
-                retry = False
+                else:
+                    retry = False
 
             if retry:
                 print(f"Skipping {task} batch... (size: {batch_size})")
