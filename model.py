@@ -190,7 +190,7 @@ class MT_BERT(nn.Module):
         premises = (bert_output * premises_mask)[:, :longest_premise, :]
 
         mask_hypotheses = tokenized_input.attention_mask * tokenized_input.token_type_ids
-        hypotheses_mask = mask_hypotheses.unsqueeze(2).repeat(1, 1, 768)
+        hypotheses_mask = mask_hypotheses.unsqueeze(2).repeat(1, 1, self.hidden_size)
         longest_hypothesis = torch.max(torch.sum(tokenized_input.token_type_ids, -1))
         hypotheses = (bert_output * hypotheses_mask).flip([1])[:, :longest_hypothesis, :].flip([1])
 
