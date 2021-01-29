@@ -116,7 +116,7 @@ class MT_BERT(nn.Module):
         self.STS_B = PTSModule(self.hidden_size)
 
         # Pairwise Text Classification
-        self.MNLI = PTCModule(self.hidden_size, k_steps, output_classes=Task.MNLI.num_classes(), dropout_prob=0.3,
+        self.MNLI = PTCModule(self.hidden_size, k_steps, output_classes=Task.MNLIm.num_classes(), dropout_prob=0.3,
                               stochastic_prediction_dropout_prob=0.3)
         self.RTE = PTCModule(self.hidden_size, k_steps, output_classes=Task.RTE.num_classes())
         self.WNLI = PTCModule(self.hidden_size, k_steps, output_classes=Task.WNLI.num_classes())

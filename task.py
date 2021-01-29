@@ -23,7 +23,7 @@ class Task(Enum):
     AX = 'AX'
 
     def num_classes(self):
-        if self == Task.MNLI or self == Task.SNLI:
+        if self == Task.MNLIm or self == Task.MNLImm or self == Task.SNLI:
             return 3
         elif self == Task.STS_B or self == Task.QNLI:
             return 1
