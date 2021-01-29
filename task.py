@@ -16,7 +16,7 @@ class Task(Enum):
     RTE = 'RTE'
     WNLI = 'WNLI'
     QQP = 'QQP'
-    MRPC = 'MPRC'
+    MRPC = 'MRPC'
     QNLI = 'QNLI'
     SNLI = 'SNLI'
     SciTail = 'SciTail'
