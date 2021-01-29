@@ -116,17 +116,18 @@ def define_tasks_config(datasets_config):
             val_dataset = val_dataset.filter(label_filter, input_columns=["label"])
             test_dataset = test_dataset.filter(label_filter, input_columns=["label"])
 
+        shuffle = len(train_dataset) > 0
         train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=1, batch_size=task_config.batch_size,
-                                                   shuffle=True)
+                                                   shuffle=shuffle)
         val_loader = torch.utils.data.DataLoader(val_dataset, num_workers=4, batch_size=8, shuffle=False)
         test_loader = torch.utils.data.DataLoader(test_dataset, num_workers=4, batch_size=8, shuffle=False)
 
         tasks_config[task] = {
-            "label_feature": train_dataset.features["label"],
             "columns": columns,
             "train_loader": train_loader,
             "val_loader": val_loader,
             "test_loader": test_loader,
-            "test_dataset": test_dataset
+            "test_dataset": test_dataset,
+            "train_dataset": train_dataset
         }
     return tasks_config

@@ -2,6 +2,7 @@ import hashlib
 import operator
 from argparse import ArgumentParser
 from pathlib import Path
+
 import pandas as pd
 import torch
 from tqdm import tqdm
@@ -67,7 +68,6 @@ def main():
 
                     if len(data_columns) == 1:
                         input_data = list(map(operator.itemgetter(0), input_data))
-
                     model_output = model(input_data, task)
 
                     if task == Task.QNLI:
@@ -87,7 +87,8 @@ def main():
                     for metric in metrics:
                         metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
                         test_results[task.name, metric.__name__] = metric_result
-                        print(f"test_results[{task.name}, {metric.__name__}] = {test_results[task.name, metric.__name__]}")
+                        print(
+                            f"test_results[{task.name}, {metric.__name__}] = {test_results[task.name, metric.__name__]}")
                 else:
                     if task in [Task.QNLI, Task.MNLIm, Task.MNLImm, Task.AX, Task.RTE]:
                         task_predicted_labels = class_label.int2str(task_predicted_labels)
