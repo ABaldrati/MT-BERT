@@ -1,10 +1,11 @@
 from enum import Enum
 
+import numpy as np
 import torch
-from datasets import load_dataset, concatenate_datasets, ClassLabel
+from datasets import load_dataset, ClassLabel
 from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef
-from torch.utils.data import TensorDataset
+from torch.utils.data import TensorDataset, Subset
 
 
 class Task(Enum):
@@ -69,7 +70,7 @@ def define_dataset_config():
     return datasets_config
 
 
-def define_tasks_config(datasets_config):
+def define_tasks_config(datasets_config, dataset_percentage=100):
     tasks_config = {}
     for task, task_config in datasets_config.items():
         dataset_config, columns = task_config.dataset_loading_args, task_config.columns
@@ -108,6 +109,9 @@ def define_tasks_config(datasets_config):
             train_dataset = train_dataset.map(label_mapper, input_columns=["label"])
             val_dataset = val_dataset.map(label_mapper, input_columns=["label"])
             test_dataset = test_dataset.map(label_mapper, input_columns=["label"])
+            len_dataset = len(train_dataset)
+            train_dataset = Subset(train_dataset, list(
+                np.random.choice(np.arange(len_dataset), int(len_dataset * dataset_percentage / 100), False)))
         elif task == Task.SNLI:
             def label_filter(x):
                 return x != -1
@@ -115,6 +119,9 @@ def define_tasks_config(datasets_config):
             train_dataset = train_dataset.filter(label_filter, input_columns=["label"])
             val_dataset = val_dataset.filter(label_filter, input_columns=["label"])
             test_dataset = test_dataset.filter(label_filter, input_columns=["label"])
+            len_dataset = len(train_dataset)
+            train_dataset = Subset(train_dataset, list(
+                np.random.choice(np.arange(len_dataset), int(len_dataset * dataset_percentage / 100), False)))
 
         shuffle = len(train_dataset) > 0
         train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=1, batch_size=task_config.batch_size,

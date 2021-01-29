@@ -146,8 +146,9 @@ def main():
 
     task_actions = []
     for task in iter(Task):
-        train_loader = tasks_config[task]["train_loader"]
-        task_actions.extend([task] * len(train_loader))
+        if task not in [Task.SNLI, Task.SciTail]:  # Train only GLUE task
+            train_loader = tasks_config[task]["train_loader"]
+            task_actions.extend([task] * len(train_loader))
     total_steps = len(task_actions)
 
     model = MT_BERT()
@@ -176,10 +177,6 @@ def main():
     for name, loss in losses.items():
         losses[name].to(device)
 
-    task_actions = []
-    for task in iter(Task):
-        train_loader = tasks_config[task]["train_loader"]
-        task_actions.extend([task] * len(train_loader))
     for epoch in range(initial_epoch, NUM_EPOCHS + 1):
         with stream_redirect_tqdm() as orig_stdout:
             epoch_bar = tqdm(sample(task_actions, len(task_actions)), file=orig_stdout)
@@ -208,9 +205,11 @@ def main():
 
                 if task_action == Task.QNLI:
                     class_label = tasks_config[task_action]["train_dataset"].features['label']
-                    train_qnli_batch(input_data=data, class_label=class_label, model=model, loss_function=task_criterion, optimizer=optimizer)
+                    train_qnli_batch(input_data=data, class_label=class_label, model=model,
+                                     loss_function=task_criterion, optimizer=optimizer)
                 else:
-                    train_minibatch(input_data=input_data, task=task_action, label=label, model=model, task_criterion=task_criterion, optimizer=optimizer)
+                    train_minibatch(input_data=input_data, task=task_action, label=label, model=model,
+                                    task_criterion=task_criterion, optimizer=optimizer)
 
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
                 optimizer.step()
@@ -234,7 +233,7 @@ def main():
             model.eval()
             val_results = {}
             with torch.no_grad():
-                task_bar = tqdm(Task, file=orig_stdout)
+                task_bar = tqdm([task for task in Task if task not in [Task.SNLI, Task.SciTail]], file=orig_stdout)
                 for task in task_bar:
                     task_bar.set_description(task.name)
                     val_loader = tasks_config[task]["val_loader"]
@@ -269,11 +268,12 @@ def main():
                         if type(metric_result) == tuple or type(metric_result) == scipy.stats.stats.SpearmanrResult:
                             metric_result = metric_result[0]
                         val_results[task.name, metric.__name__] = metric_result
-                        print(f"val_results[{task.name}, {metric.__name__}] = {val_results[task.name, metric.__name__]}")
+                        print(
+                            f"val_results[{task.name}, {metric.__name__}] = {val_results[task.name, metric.__name__]}")
             data_frame = pd.DataFrame(
                 data=val_results,
                 index=[epoch])
-            data_frame.to_csv(str(results_folder / f"train_results.csv"), mode='a', index_label='Epoch')
+            data_frame.to_csv(str(results_folder / f"train_GLUE_results.csv"), mode='a', index_label='Epoch')
 
 
 if __name__ == '__main__':
