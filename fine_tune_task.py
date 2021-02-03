@@ -1,8 +1,10 @@
 import hashlib
+import operator
 from argparse import ArgumentParser
 from pathlib import Path
 
 import pandas as pd
+import scipy
 import torch
 from torch import optim
 from torch.nn import BCELoss, MSELoss, CrossEntropyLoss
@@ -27,11 +29,11 @@ def main():
             all_files += f.read()
     print(hashlib.md5(all_files.encode()).hexdigest())
 
-    NUM_EPOCHS = int(5)
+    NUM_EPOCHS = int(10)
     parser = ArgumentParser()
     parser.add_argument("--from-checkpoint", required=True)
-    parser.add_argument("--adaptation-task", type=Task, choices=[Task.SNLI, Task.SciTail], required=True)
-    parser.add_argument("--dataset-percentage", type=float, required=True)
+    parser.add_argument("--fine-tune-task", type=Task, choices=list(Task), required=True)
+    parser.add_argument("--dataset-percentage", type=float, default=100)
 
     args = parser.parse_args()
 
@@ -44,9 +46,9 @@ def main():
     model.load_state_dict(checkpoint['model_state_dict'])
     # optimizer.load_state_dict(checkpoint['optimizer_state_dict']) #TODO: check me
     training_start = checkpoint["training_start"]
-    adaptation_task = args.adaptation_task
+    fine_tune_task = args.fine_tune_task
     dataset_percentage = args.dataset_fraction
-    print(f"Task Adaptation of {adaptation_task.name} with fraction:{dataset_percentage}")
+    print(f"Task fine tune of {fine_tune_task.name} with fraction:{dataset_percentage}")
 
     print(f"------------------ training-start:  {training_start} --------------------------)")
 
@@ -57,19 +59,30 @@ def main():
     datasets_config = define_dataset_config()
     tasks_config = define_tasks_config(datasets_config, dataset_percentage=dataset_percentage)
 
-    data_columns = [col for col in tasks_config[adaptation_task]["columns"] if col != "label"]
-    task_criterion = losses[MT_BERT.loss_for_task(adaptation_task)]
+    data_columns = [col for col in tasks_config[fine_tune_task]["columns"] if col != "label"]
+    task_criterion = losses[MT_BERT.loss_for_task(fine_tune_task)]
 
     for epoch in range(initial_epoch, NUM_EPOCHS + 1):
         with stream_redirect_tqdm() as orig_stdout:
-            epoch_bar = tqdm(tasks_config[adaptation_task]['train_loader'], file=orig_stdout)
+            epoch_bar = tqdm(tasks_config[fine_tune_task]['train_loader'], file=orig_stdout)
             model.train()
 
             for data in epoch_bar:
                 optimizer.zero_grad(set_to_none=True)
                 input_data = list(zip(*(data[col] for col in data_columns)))
 
-                train_minibatch(input_data=input_data, task=adaptation_task, label=label, model=model,
+                label = data["label"]
+                if label.dtype == torch.float64:
+                    label = label.to(torch.float32)
+
+                task_criterion = losses[MT_BERT.loss_for_task(fine_tune_task)]
+
+                if len(data_columns) == 1:
+                    input_data = list(map(operator.itemgetter(0), input_data))
+
+                label = label.to(device)
+
+                train_minibatch(input_data=input_data, task=fine_tune_task, label=label, model=model,
                                 task_criterion=task_criterion, optimizer=optimizer)
 
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
@@ -78,7 +91,7 @@ def main():
             results_folder = Path(f"results_{training_start}")
             results_folder.mkdir(exist_ok=True)
 
-            models_path = results_folder / f"saved_model_adaptation_{adaptation_task}, fraction:{dataset_percentage}%"
+            models_path = results_folder / f"saved_model_fine_tuned_{fine_tune_task}, fraction:{dataset_percentage}%"
             models_path.mkdir(exist_ok=True)
             torch.save({
                 'epoch': epoch,
@@ -90,33 +103,41 @@ def main():
             model.eval()
             val_results = {}
             with torch.no_grad():
-                val_bar = tqdm(tasks_config[adaptation_task]['val_loader'], file=orig_stdout)
+                val_bar = tqdm(tasks_config[fine_tune_task]['val_loader'], file=orig_stdout)
                 task_predicted_labels = torch.empty(0, device=device)
                 task_labels = torch.empty(0, device=device)
                 for val_data in val_bar:
-                    val_bar.set_description(adaptation_task.name)
+                    val_bar.set_description(fine_tune_task.name)
 
                     input_data = list(zip(*(val_data[col] for col in data_columns)))
                     label = val_data["label"].to(device)
 
-                    model_output = model(input_data, adaptation_task)
+                    if len(data_columns) == 1:
+                        input_data = list(map(operator.itemgetter(0), input_data))
 
-                    predicted_label = torch.argmax(model_output, -1)
+                    model_output = model(input_data, fine_tune_task)
+
+                    if fine_tune_task.num_classes() > 1 or fine_tune_task == Task.QNLI:
+                        predicted_label = torch.argmax(model_output, -1)
+                    else:
+                        predicted_label = model_output
 
                     task_predicted_labels = torch.hstack((task_predicted_labels, predicted_label.view(-1)))
                     task_labels = torch.hstack((task_labels, label))
 
-                    metrics = datasets_config[adaptation_task].metrics
+                    metrics = datasets_config[fine_tune_task].metrics
                     for metric in metrics:
                         metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
-                        val_results[adaptation_task.name, metric.__name__] = metric_result
+                        if type(metric_result) == tuple or type(metric_result) == scipy.stats.stats.SpearmanrResult:
+                            metric_result = metric_result[0]
+                        val_results[fine_tune_task.name, metric.__name__] = metric_result
                         print(
-                            f"val_results[{adaptation_task.name}, {metric.__name__}] = {val_results[adaptation_task.name, metric.__name__]}")
+                            f"val_results[{fine_tune_task.name}, {metric.__name__}] = {val_results[fine_tune_task.name, metric.__name__]}")
             data_frame = pd.DataFrame(
                 data=val_results,
                 index=[epoch])
             data_frame.to_csv(
-                str(results_folder / f"adaptation_task: {adaptation_task}, fraction:{dataset_percentage}%.csv"),
+                str(results_folder / f"fine_tune_task: {fine_tune_task}, fraction:{dataset_percentage}%.csv"),
                 mode='a', index_label='Epoch')
 
 
