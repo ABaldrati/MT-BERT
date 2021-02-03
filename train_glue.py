@@ -4,12 +4,9 @@ import hashlib
 import math
 import operator
 from argparse import ArgumentParser
-from collections import defaultdict
 from functools import wraps
 from pathlib import Path
 from random import sample
-from typing import List, Any
-
 import pandas as pd
 import pytorch_warmup as warmup
 import scipy
@@ -90,7 +87,9 @@ def retry_with_batchsize_halving(train_task=None):
 
             if retry:
                 print(f"Skipping {task} batch... (size: {batch_size})")
+
         return wrapper
+
     return inner
 
 
@@ -102,34 +101,6 @@ def train_minibatch(input_data, task, label, model, task_criterion, **kwargs):
     del output
 
 
-@retry_with_batchsize_halving(train_task=Task.QNLI)
-def train_qnli_batch(input_data, class_label, model, loss_function, **kwargs):
-    questions = input_data["question"]
-    answers = input_data["sentence"]
-    labels = input_data["label"]
-    relevant_answers = defaultdict(list)
-    for question, answer, label in zip(questions, answers, labels):
-        if class_label.int2str(torch.tensor([label]))[0] == "entailment":
-            relevant_answers[question].append(answer)
-
-    for question, answer, label in zip(questions, answers, labels):
-        softmax_answers: List[Any] = answers.copy()
-        if class_label.int2str(torch.tensor([label]))[0] == "not_entailment":
-            continue
-        for relevant_answer in relevant_answers[question]:
-            softmax_answers.remove(relevant_answer)
-
-        softmax_answers.append(answer)
-        model_input = []
-        for a in softmax_answers:
-            model_input.append([question, a])
-
-        model_output = model(model_input, Task.QNLI)
-        loss = loss_function(torch.softmax(model_output, -1)[-1].view(-1), torch.ones(1, device=device))
-        loss.backward()
-        del model_output
-
-
 def main():
     all_files = ""
     for file in Path(__file__).parent.resolve().glob('*.py'):
@@ -137,7 +108,7 @@ def main():
             all_files += f.read()
     print(hashlib.md5(all_files.encode()).hexdigest())
 
-    NUM_EPOCHS = int(5)
+    NUM_EPOCHS = int(10)
     parser = ArgumentParser()
     parser.add_argument("--from-checkpoint")
     args = parser.parse_args()
@@ -197,20 +168,15 @@ def main():
                 label = data["label"]
                 if label.dtype == torch.float64:
                     label = label.to(torch.float32)
-                label = label.to(device)
 
                 task_criterion = losses[MT_BERT.loss_for_task(task_action)]
 
                 if len(data_columns) == 1:
                     input_data = list(map(operator.itemgetter(0), input_data))
 
-                if task_action == Task.QNLI:
-                    class_label = tasks_config[task_action]["train_dataset"].features['label']
-                    train_qnli_batch(input_data=data, class_label=class_label, model=model,
-                                     loss_function=task_criterion, optimizer=optimizer)
-                else:
-                    train_minibatch(input_data=input_data, task=task_action, label=label, model=model,
-                                    task_criterion=task_criterion, optimizer=optimizer)
+                label = label.to(device)
+                train_minibatch(input_data=input_data, task=task_action, label=label, model=model,
+                                task_criterion=task_criterion, optimizer=optimizer)
 
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
                 optimizer.step()
@@ -253,8 +219,6 @@ def main():
 
                         if task == Task.QNLI:
                             predicted_label = torch.round(model_output)
-                            predicted_label = torch.logical_not(predicted_label)
-                            predicted_label.to(torch.int8)
                         elif task.num_classes() > 1:
                             predicted_label = torch.argmax(model_output, -1)
                         else:

@@ -74,7 +74,7 @@ class PTCModule(nn.Module):  # Pariwise text classification
 
         actual_k = 0
         for k in range(self.k_steps):
-            betas = F.softmax(s_state @ layer_output_transpose, -1)  # TODO check correctness
+            betas = F.softmax(s_state @ layer_output_transpose, -1)
             x_input = betas @ premises
             _, s_state = self.GRU(x_input, s_state.transpose(0, 1))
             s_state = s_state.transpose(0, 1).to(device)
