@@ -118,7 +118,7 @@ def main():
 
     task_actions = []
     for task in iter(Task):
-        if task not in [Task.SNLI, Task.SciTail]:  # Train only GLUE task
+        if task not in [Task.SNLI, Task.SciTail, Task.WNLI]:  # Train only GLUE task
             train_loader = tasks_config[task]["train_loader"]
             task_actions.extend([task] * len(train_loader))
     total_steps = len(task_actions)
@@ -200,7 +200,8 @@ def main():
             model.eval()
             val_results = {}
             with torch.no_grad():
-                task_bar = tqdm([task for task in Task if task not in [Task.SNLI, Task.SciTail]], file=orig_stdout)
+                task_bar = tqdm([task for task in Task if task not in [Task.SNLI, Task.SciTail, Task.WNLI]],
+                                file=orig_stdout)
                 for task in task_bar:
                     task_bar.set_description(task.name)
                     val_loader = tasks_config[task]["val_loader"]
