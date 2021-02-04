@@ -168,6 +168,8 @@ def main():
                 label = data["label"]
                 if label.dtype == torch.float64:
                     label = label.to(torch.float32)
+                if task_action == Task.QNLI:
+                    label = label.to(torch.float32)
 
                 task_criterion = losses[MT_BERT.loss_for_task(task_action)]
 
