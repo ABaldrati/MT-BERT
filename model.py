@@ -121,8 +121,8 @@ class MT_BERT(nn.Module):
         self.WNLI = PTCModule(self.hidden_size, k_steps, output_classes=Task.WNLI.num_classes())
         self.QQP = PTCModule(self.hidden_size, k_steps, output_classes=Task.QQP.num_classes())
         self.MRPC = PTCModule(self.hidden_size, k_steps, output_classes=Task.MRPC.num_classes())
-        self.SNLI = PTCModule(self.hidden_size, k_steps, output_classes=Task.SNLI.num_classes())
-        self.SciTail = PTCModule(self.hidden_size, k_steps, output_classes=Task.SciTail.num_classes())
+        self.SNLI = SSCModule(self.hidden_size, output_classes=Task.SNLI.num_classes())
+        self.SciTail = SSCModule(self.hidden_size, output_classes=Task.SciTail.num_classes())
 
         # Pairwise Ranking
         self.QNLI = PRModule(self.hidden_size)
@@ -156,11 +156,9 @@ class MT_BERT(nn.Module):
             premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
             return self.MRPC(premises, hypotheses)
         elif task == Task.SNLI:
-            premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
-            return self.SNLI(premises, hypotheses)
+            return self.SNLI(cls_embedding)
         elif task == Task.SciTail:
-            premises, hypotheses = self.preprocess_PTC_input(bert_output, tokenized_input)
-            return self.SciTail(premises, hypotheses)
+            return self.SciTail(cls_embedding)
         elif task == Task.QNLI:
             return self.QNLI(cls_embedding)
 
