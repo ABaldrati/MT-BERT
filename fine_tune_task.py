@@ -75,8 +75,6 @@ def main():
                 if label.dtype == torch.float64:
                     label = label.to(torch.float32)
 
-                task_criterion = losses[MT_BERT.loss_for_task(fine_tune_task)]
-
                 if len(data_columns) == 1:
                     input_data = list(map(operator.itemgetter(0), input_data))
 
