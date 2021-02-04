@@ -12,12 +12,11 @@ else:
 
 
 class SSCModule(nn.Module):  # Single sentence classification
-    def __init__(self, hidden_size, dropout_prob=0.1):
+    def __init__(self, hidden_size, dropout_prob=0.1, output_classes=2):
         super().__init__()
-
         self.output_layer = nn.Sequential(
-            nn.Linear(hidden_size, 2),
             nn.Dropout(dropout_prob),
+            nn.Linear(hidden_size, output_classes),
             nn.Softmax(-1))
 
     def forward(self, x):
@@ -27,10 +26,10 @@ class SSCModule(nn.Module):  # Single sentence classification
 class PTSModule(nn.Module):  # Pairwise text similarity
     def __init__(self, hidden_size, dropout_prob=0.1):
         super().__init__()
-
         self.output_layer = nn.Sequential(
+            nn.Dropout(dropout_prob),
             nn.Linear(hidden_size, 1),
-            nn.Dropout(dropout_prob))
+        )
 
     def forward(self, x):
         return self.output_layer(x).view(-1)
@@ -56,7 +55,7 @@ class PTCModule(nn.Module):  # Pariwise text classification
 
         self.W3 = nn.Sequential(
             nn.Linear(4 * hidden_size, output_classes),
-            nn.Dropout(dropout_prob))
+        )
 
     def forward(self, premises: torch.Tensor, hypotheses: torch.Tensor):
         batch_size = premises.size(0)
@@ -90,10 +89,10 @@ class PTCModule(nn.Module):  # Pariwise text classification
 class PRModule(nn.Module):  # Pairwise ranking module
     def __init__(self, hidden_size, dropout_prob=0.1):
         super().__init__()
-
         self.output_layer = nn.Sequential(
+            nn.Dropout(dropout_prob),
             nn.Linear(hidden_size, 1),
-            nn.Dropout(dropout_prob))
+        )
 
     def forward(self, x):
         return torch.sigmoid(self.output_layer(x)).view(x.size(0))
