@@ -111,6 +111,7 @@ def main():
     NUM_EPOCHS = int(10)
     parser = ArgumentParser()
     parser.add_argument("--from-checkpoint")
+    parser.add_argument("--train-epochs", type=int)
     args = parser.parse_args()
 
     datasets_config = define_dataset_config()
@@ -143,6 +144,8 @@ def main():
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda step: 1.0)
         warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=(total_steps * NUM_EPOCHS) // 10)
 
+    if args.train_epochs:
+        NUM_EPOCHS = initial_epoch + args.train_epochs
     print(f"------------------ training-start:  {training_start} --------------------------)")
 
     losses = {'BCELoss': BCELoss(), 'CrossEntropyLoss': CrossEntropyLoss(), 'MSELoss': MSELoss()}
