@@ -27,6 +27,7 @@ def main():
 
     parser = ArgumentParser()
     parser.add_argument("--model", required=True)
+    parser.add_argument("--tasks", type=Task, nargs='+', default=list(Task))
     args = parser.parse_args()
 
     datasets_config = define_dataset_config()
@@ -40,6 +41,8 @@ def main():
     training_start = saved_model["training_start"]
     epoch = saved_model['epoch']
 
+    test_tasks = args.tasks
+
     results_folder = Path(f"results_{training_start}")
     results_folder.mkdir(exist_ok=True)
     glue_results_folder = Path(results_folder / f"glue_submission_epoch:{epoch}")
@@ -49,7 +52,7 @@ def main():
     test_results = {}
     with torch.no_grad():
         with stream_redirect_tqdm() as orig_stdout:
-            task_bar = tqdm(Task, file=orig_stdout)
+            task_bar = tqdm(test_tasks, file=orig_stdout)
             for task in task_bar:
                 task_bar.set_description(task.name)
                 test_loader = tasks_config[task]["test_loader"]
