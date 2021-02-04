@@ -46,14 +46,16 @@ class PTCModule(nn.Module):  # Pariwise text classification
         self.GRU = nn.GRU(input_size=hidden_size, hidden_size=hidden_size, batch_first=True)
 
         self.W1 = nn.Sequential(
+            nn.Dropout(dropout_prob),
             nn.Linear(hidden_size, 1),
-            nn.Dropout(dropout_prob))
+            )
 
         self.W2 = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.Dropout(dropout_prob))
+            nn.Dropout(dropout_prob),
+            nn.Linear(hidden_size, hidden_size))
 
         self.W3 = nn.Sequential(
+            nn.Dropout(dropout_prob),
             nn.Linear(4 * hidden_size, output_classes),
         )
 
