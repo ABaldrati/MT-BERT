@@ -145,7 +145,7 @@ def main():
         warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=(total_steps * NUM_EPOCHS) // 10)
 
     if args.train_epochs:
-        NUM_EPOCHS = initial_epoch + args.train_epochs
+        NUM_EPOCHS = initial_epoch + args.train_epochs - 1
     print(f"------------------ training-start:  {training_start} --------------------------)")
 
     losses = {'BCELoss': BCELoss(), 'CrossEntropyLoss': CrossEntropyLoss(), 'MSELoss': MSELoss()}
