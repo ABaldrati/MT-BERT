@@ -47,7 +47,7 @@ def main():
     # optimizer.load_state_dict(checkpoint['optimizer_state_dict']) #TODO: check me
     training_start = checkpoint["training_start"]
     fine_tune_task = args.fine_tune_task
-    dataset_percentage = args.dataset_fraction
+    dataset_percentage = args.dataset_percentage
     print(f"Task fine tune of {fine_tune_task.name} with fraction:{dataset_percentage}")
 
     print(f"------------------ training-start:  {training_start} --------------------------)")
