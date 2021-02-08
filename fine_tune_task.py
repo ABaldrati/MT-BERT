@@ -123,14 +123,14 @@ def main():
                     task_predicted_labels = torch.hstack((task_predicted_labels, predicted_label.view(-1)))
                     task_labels = torch.hstack((task_labels, label))
 
-                    metrics = datasets_config[fine_tune_task].metrics
-                    for metric in metrics:
-                        metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
-                        if type(metric_result) == tuple or type(metric_result) == scipy.stats.stats.SpearmanrResult:
-                            metric_result = metric_result[0]
-                        val_results[fine_tune_task.name, metric.__name__] = metric_result
-                        print(
-                            f"val_results[{fine_tune_task.name}, {metric.__name__}] = {val_results[fine_tune_task.name, metric.__name__]}")
+                metrics = datasets_config[fine_tune_task].metrics
+                for metric in metrics:
+                    metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
+                    if type(metric_result) == tuple or type(metric_result) == scipy.stats.stats.SpearmanrResult:
+                        metric_result = metric_result[0]
+                    val_results[fine_tune_task.name, metric.__name__] = metric_result
+                    print(
+                        f"val_results[{fine_tune_task.name}, {metric.__name__}] = {val_results[fine_tune_task.name, metric.__name__]}")
             data_frame = pd.DataFrame(
                 data=val_results,
                 index=[epoch])
