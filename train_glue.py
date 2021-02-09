@@ -122,7 +122,7 @@ def main():
         if task not in [Task.SNLI, Task.SciTail, Task.WNLI]:  # Train only GLUE task
             train_loader = tasks_config[task]["train_loader"]
             task_actions.extend([task] * len(train_loader))
-    total_steps = len(task_actions)
+    epoch_steps = len(task_actions)
 
     model = MT_BERT()
     model.to(device)
@@ -142,7 +142,7 @@ def main():
     else:
         print("Starting training from scratch")
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda step: 1.0)
-        warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=(total_steps * NUM_EPOCHS) // 10)
+        warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=(epoch_steps * NUM_EPOCHS) // 10)
 
     if args.train_epochs:
         NUM_EPOCHS = initial_epoch + args.train_epochs - 1
