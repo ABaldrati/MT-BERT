@@ -100,8 +100,10 @@ def main():
                 if warmup_scheduler:
                     lr_scheduler.step()
                     warmup_scheduler.dampen()
-
-            results_folder = Path(f"results_{training_start}")
+            if args.from_checkpoint:
+                results_folder = Path(f"results_{training_start}")
+            else:
+                results_folder = Path(f"results_ST_{training_start}_{fine_tune_task}")
             results_folder.mkdir(exist_ok=True)
 
             models_path = results_folder / f"saved_model_fine_tuned_{fine_tune_task}, percentage:{dataset_percentage}%"
