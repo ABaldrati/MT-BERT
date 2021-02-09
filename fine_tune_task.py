@@ -61,7 +61,7 @@ def main():
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda step: 1.0)
         warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=(epoch_steps * NUM_EPOCHS) // 10)
 
-    print(f"Task fine tune of {fine_tune_task.name} with fraction:{dataset_percentage}")
+    print(f"Task fine tune of {fine_tune_task.name} with percentage:{dataset_percentage}")
 
     print(f"------------------ training-start:  {training_start} --------------------------)")
 
@@ -103,7 +103,7 @@ def main():
             results_folder = Path(f"results_{training_start}")
             results_folder.mkdir(exist_ok=True)
 
-            models_path = results_folder / f"saved_model_fine_tuned_{fine_tune_task}, fraction:{dataset_percentage}%"
+            models_path = results_folder / f"saved_model_fine_tuned_{fine_tune_task}, percentage:{dataset_percentage}%"
             models_path.mkdir(exist_ok=True)
             torch.save({
                 'epoch': epoch,
@@ -149,7 +149,7 @@ def main():
                 data=val_results,
                 index=[epoch])
             data_frame.to_csv(
-                str(results_folder / f"fine_tune_task: {fine_tune_task}, fraction:{dataset_percentage}%.csv"),
+                str(results_folder / f"fine_tune_task: {fine_tune_task}, percentage:{dataset_percentage}%.csv"),
                 mode='a', index_label='Epoch')
 
 
