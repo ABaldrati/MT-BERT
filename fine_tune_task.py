@@ -1,6 +1,7 @@
 import hashlib
 import operator
 from argparse import ArgumentParser
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -9,7 +10,7 @@ import torch
 from torch import optim
 from torch.nn import BCELoss, MSELoss, CrossEntropyLoss
 from tqdm import tqdm
-
+import pytorch_warmup as warmup
 from model import MT_BERT
 from task import Task, define_dataset_config, define_tasks_config
 from train_glue import train_minibatch
@@ -31,7 +32,7 @@ def main():
 
     NUM_EPOCHS = int(10)
     parser = ArgumentParser()
-    parser.add_argument("--from-checkpoint", required=True)
+    parser.add_argument("--from-checkpoint")
     parser.add_argument("--fine-tune-task", type=Task, choices=list(Task), required=True)
     parser.add_argument("--dataset-percentage", type=float, default=100)
 
@@ -41,13 +42,25 @@ def main():
     model.to(device)
     optimizer = optim.Adamax(model.parameters(), lr=5e-5)
     initial_epoch = 1
+    training_start = datetime.datetime.now().isoformat()
 
-    checkpoint = torch.load(args.from_checkpoint, map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    # optimizer.load_state_dict(checkpoint['optimizer_state_dict']) #TODO: check me
-    training_start = checkpoint["training_start"]
     fine_tune_task = args.fine_tune_task
     dataset_percentage = args.dataset_percentage
+
+    datasets_config = define_dataset_config()
+    tasks_config = define_tasks_config(datasets_config, dataset_percentage=dataset_percentage)
+
+    epoch_steps = len(tasks_config[fine_tune_task]['train_loader'])
+    if args.from_checkpoint:
+        checkpoint = torch.load(args.from_checkpoint, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        training_start = checkpoint["training_start"]
+        warmup_scheduler = None
+    else:
+        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda step: 1.0)
+        warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=(epoch_steps * NUM_EPOCHS) // 10)
+
     print(f"Task fine tune of {fine_tune_task.name} with fraction:{dataset_percentage}")
 
     print(f"------------------ training-start:  {training_start} --------------------------)")
@@ -55,9 +68,6 @@ def main():
     losses = {'BCELoss': BCELoss(), 'CrossEntropyLoss': CrossEntropyLoss(), 'MSELoss': MSELoss()}
     for name, loss in losses.items():
         losses[name].to(device)
-
-    datasets_config = define_dataset_config()
-    tasks_config = define_tasks_config(datasets_config, dataset_percentage=dataset_percentage)
 
     data_columns = [col for col in tasks_config[fine_tune_task]["columns"] if col != "label"]
     task_criterion = losses[MT_BERT.loss_for_task(fine_tune_task)]
@@ -85,6 +95,10 @@ def main():
 
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
                 optimizer.step()
+
+                if warmup_scheduler:
+                    lr_scheduler.step()
+                    warmup_scheduler.dampen()
 
             results_folder = Path(f"results_{training_start}")
             results_folder.mkdir(exist_ok=True)
