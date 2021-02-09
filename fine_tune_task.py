@@ -1,16 +1,17 @@
+import datetime
 import hashlib
 import operator
 from argparse import ArgumentParser
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+import pytorch_warmup as warmup
 import scipy
 import torch
 from torch import optim
 from torch.nn import BCELoss, MSELoss, CrossEntropyLoss
 from tqdm import tqdm
-import pytorch_warmup as warmup
+
 from model import MT_BERT
 from task import Task, define_dataset_config, define_tasks_config
 from train_glue import train_minibatch
