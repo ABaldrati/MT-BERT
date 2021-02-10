@@ -75,7 +75,7 @@ def main():
 
     for epoch in range(initial_epoch, NUM_EPOCHS + 1):
         with stream_redirect_tqdm() as orig_stdout:
-            epoch_bar = tqdm(tasks_config[fine_tune_task]['train_loader'], file=orig_stdout)
+            epoch_bar = tqdm(tasks_config[fine_tune_task]['train_loader'], file=orig_stdout, position=0, leave=True)
             model.train()
 
             for data in epoch_bar:
@@ -84,6 +84,8 @@ def main():
 
                 label = data["label"]
                 if label.dtype == torch.float64:
+                    label = label.to(torch.float32)
+                if fine_tune_task == Task.QNLI:
                     label = label.to(torch.float32)
 
                 if len(data_columns) == 1:
