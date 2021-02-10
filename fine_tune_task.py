@@ -145,7 +145,9 @@ def evaluate_task(data_columns, datasets_config, fine_tune_task, model, orig_std
 
             model_output = model(input_data, fine_tune_task)
 
-            if fine_tune_task.num_classes() > 1 or fine_tune_task == Task.QNLI:
+            if fine_tune_task == Task.QNLI:
+                predicted_label = torch.round(model_output)
+            elif fine_tune_task.num_classes() > 1:
                 predicted_label = torch.argmax(model_output, -1)
             else:
                 predicted_label = model_output
