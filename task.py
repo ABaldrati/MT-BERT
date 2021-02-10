@@ -110,8 +110,9 @@ def define_tasks_config(datasets_config, dataset_percentage=100):
             val_dataset = val_dataset.map(label_mapper, input_columns=["label"])
             test_dataset = test_dataset.map(label_mapper, input_columns=["label"])
             len_dataset = len(train_dataset)
-            train_dataset = Subset(train_dataset, list(
-                np.random.choice(np.arange(len_dataset), int(len_dataset * dataset_percentage / 100), False)))
+            train_dataset = train_dataset.select(
+                list(np.random.choice(np.arange(len_dataset), int(len_dataset * dataset_percentage / 100), False)))
+
         elif task == Task.SNLI:
             def label_filter(x):
                 return x != -1
@@ -120,8 +121,8 @@ def define_tasks_config(datasets_config, dataset_percentage=100):
             val_dataset = val_dataset.filter(label_filter, input_columns=["label"])
             test_dataset = test_dataset.filter(label_filter, input_columns=["label"])
             len_dataset = len(train_dataset)
-            train_dataset = Subset(train_dataset, list(
-                np.random.choice(np.arange(len_dataset), int(len_dataset * dataset_percentage / 100), False)))
+            train_dataset = train_dataset.select(
+                list(np.random.choice(np.arange(len_dataset), int(len_dataset * dataset_percentage / 100), False)))
 
         shuffle = len(train_dataset) > 0
         train_loader = torch.utils.data.DataLoader(train_dataset, num_workers=1, batch_size=task_config.batch_size,
