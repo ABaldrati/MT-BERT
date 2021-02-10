@@ -117,43 +117,50 @@ def main():
 
             model.eval()
             val_results = {}
-            with torch.no_grad():
-                val_bar = tqdm(tasks_config[fine_tune_task]['val_loader'], file=orig_stdout)
-                task_predicted_labels = torch.empty(0, device=device)
-                task_labels = torch.empty(0, device=device)
-                for val_data in val_bar:
-                    val_bar.set_description(fine_tune_task.name)
-
-                    input_data = list(zip(*(val_data[col] for col in data_columns)))
-                    label = val_data["label"].to(device)
-
-                    if len(data_columns) == 1:
-                        input_data = list(map(operator.itemgetter(0), input_data))
-
-                    model_output = model(input_data, fine_tune_task)
-
-                    if fine_tune_task.num_classes() > 1 or fine_tune_task == Task.QNLI:
-                        predicted_label = torch.argmax(model_output, -1)
-                    else:
-                        predicted_label = model_output
-
-                    task_predicted_labels = torch.hstack((task_predicted_labels, predicted_label.view(-1)))
-                    task_labels = torch.hstack((task_labels, label))
-
-                metrics = datasets_config[fine_tune_task].metrics
-                for metric in metrics:
-                    metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
-                    if type(metric_result) == tuple or type(metric_result) == scipy.stats.stats.SpearmanrResult:
-                        metric_result = metric_result[0]
-                    val_results[fine_tune_task.name, metric.__name__] = metric_result
-                    print(
-                        f"val_results[{fine_tune_task.name}, {metric.__name__}] = {val_results[fine_tune_task.name, metric.__name__]}")
+            evaluate_task(data_columns, datasets_config, fine_tune_task, model, orig_stdout, tasks_config, val_results)
+            if fine_tune_task == Task.MNLIm:
+                evaluate_task(data_columns, datasets_config, Task.MNLImm, model, orig_stdout, tasks_config,
+                              val_results)
             data_frame = pd.DataFrame(
                 data=val_results,
                 index=[epoch])
             data_frame.to_csv(
                 str(results_folder / f"fine_tune_task: {fine_tune_task}, percentage:{dataset_percentage}%.csv"),
                 mode='a', index_label='Epoch')
+
+
+def evaluate_task(data_columns, datasets_config, fine_tune_task, model, orig_stdout, tasks_config, val_results):
+    with torch.no_grad():
+        val_bar = tqdm(tasks_config[fine_tune_task]['val_loader'], file=orig_stdout, position=0, leave=True)
+        task_predicted_labels = torch.empty(0, device=device)
+        task_labels = torch.empty(0, device=device)
+        for val_data in val_bar:
+            val_bar.set_description(fine_tune_task.name)
+
+            input_data = list(zip(*(val_data[col] for col in data_columns)))
+            label = val_data["label"].to(device)
+
+            if len(data_columns) == 1:
+                input_data = list(map(operator.itemgetter(0), input_data))
+
+            model_output = model(input_data, fine_tune_task)
+
+            if fine_tune_task.num_classes() > 1 or fine_tune_task == Task.QNLI:
+                predicted_label = torch.argmax(model_output, -1)
+            else:
+                predicted_label = model_output
+
+            task_predicted_labels = torch.hstack((task_predicted_labels, predicted_label.view(-1)))
+            task_labels = torch.hstack((task_labels, label))
+
+        metrics = datasets_config[fine_tune_task].metrics
+        for metric in metrics:
+            metric_result = metric(task_labels.cpu(), task_predicted_labels.cpu())
+            if type(metric_result) == tuple or type(metric_result) == scipy.stats.stats.SpearmanrResult:
+                metric_result = metric_result[0]
+            val_results[fine_tune_task.name, metric.__name__] = metric_result
+            print(
+                f"val_results[{fine_tune_task.name}, {metric.__name__}] = {val_results[fine_tune_task.name, metric.__name__]}")
 
 
 if __name__ == '__main__':
