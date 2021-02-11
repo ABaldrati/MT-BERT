@@ -17,7 +17,7 @@
 
 ## About The Project
 
-In ```MT-BERT``` we reproduce a neutral language understanding model based on the [paper](https://arxiv.org/abs/1901.11504)
+In ```MT-BERT``` we reproduce a neural language understanding model based on the [paper](https://arxiv.org/abs/1901.11504)
 by Liu et al.(2019).
 Such model implements a Multi-Task Deep Neural Network (MT-DNN) for learning representations across multiple NLU tasks.
 MT-DNN extends the model proposed in [paper](https://www.aclweb.org/anthology/N15-1092/) by Liu et al.(2015) by incorporating a pre-trained bidirectional transformer language model, known as [BERT](https://arxiv.org/abs/1810.04805).
