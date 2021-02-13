@@ -39,13 +39,15 @@ def main():
     saved_model = torch.load(args.model, map_location=device)
     model.load_state_dict(saved_model['model_state_dict'])
     training_start = saved_model["training_start"]
-    epoch = saved_model['epoch']
 
     test_tasks = args.tasks
 
     results_folder = Path(f"results_{training_start}")
     results_folder.mkdir(exist_ok=True)
-    glue_results_folder = Path(results_folder / f"glue_submission_epoch:{epoch}")
+    if test_tasks == list(Task):
+        glue_results_folder = Path(results_folder / f"glue_submission_GLUE_tasks")
+    else:
+        glue_results_folder = Path(results_folder / f"glue_submission_{test_tasks}")
     glue_results_folder.mkdir(exist_ok=True)
 
     model.eval()
@@ -75,8 +77,6 @@ def main():
 
                     if task == Task.QNLI:
                         predicted_label = torch.round(model_output)
-                        predicted_label = torch.logical_not(predicted_label)
-                        predicted_label.to(torch.int8)
                     elif task.num_classes() > 1:
                         predicted_label = torch.argmax(model_output, -1)
                     else:
@@ -103,9 +103,10 @@ def main():
                                                     'prediction': task_predicted_labels})
 
                     data_frame.to_csv(str(glue_results_folder / f"{task.value}.tsv"), sep='\t', index=False)
-    data_frame = pd.DataFrame(
-        data=test_results, index=[0])
-    data_frame.to_csv(str(results_folder / f"Scitail_snli_results.csv"), mode='a', index_label='Epoch')
+    if test_results:
+        data_frame = pd.DataFrame(
+            data=test_results, index=[0])
+        data_frame.to_csv(str(results_folder / f"Scitail_snli_results.csv"), mode='a', index_label='Epoch')
 
 
 if __name__ == '__main__':
