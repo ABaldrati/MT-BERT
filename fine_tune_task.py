@@ -154,6 +154,9 @@ def evaluate_task(data_columns, datasets_config, fine_tune_task, model, orig_std
             else:
                 predicted_label = model_output
 
+            if fine_tune_task == Task.STS_B:
+                predicted_label = torch.clamp(predicted_label, 0, 5).to(device)
+
             task_predicted_labels = torch.hstack((task_predicted_labels, predicted_label.view(-1)))
             task_labels = torch.hstack((task_labels, label))
 
