@@ -22,6 +22,8 @@ by Liu et al.(2019).
 Such model implements a Multi-Task Deep Neural Network (MT-DNN) for learning representations across multiple NLU tasks.
 MT-DNN extends the model proposed in [paper](https://www.aclweb.org/anthology/N15-1092/) by Liu et al.(2015) by incorporating a pre-trained bidirectional transformer language model, known as [BERT](https://arxiv.org/abs/1810.04805).
 
+Slides available at [docs/MT_BERT.pdf](docs/MT_BERT.pdf)
+
 Original implementation available at [repo](https://github.com/namisan/mt-dnn)
 
 ### Built With
