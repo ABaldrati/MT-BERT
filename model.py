@@ -16,8 +16,7 @@ class SSCModule(nn.Module):  # Single sentence classification
         super().__init__()
         self.output_layer = nn.Sequential(
             nn.Dropout(dropout_prob),
-            nn.Linear(hidden_size, output_classes),
-            nn.Softmax(-1))
+            nn.Linear(hidden_size, output_classes))
 
     def forward(self, x):
         return self.output_layer(x)
@@ -82,7 +81,7 @@ class PTCModule(nn.Module):  # Pariwise text classification
             concatenated_features = torch.cat([s_state, x_input, (s_state - x_input).abs(), x_input * s_state],
                                               -1).to(device)
             if torch.rand(()) > self.stochastic_prediction_dropout or (not self.training):
-                output_probabilities += F.softmax(self.W3(concatenated_features), -1).squeeze()
+                output_probabilities += self.W3(concatenated_features).squeeze()
                 actual_k += 1
 
         return output_probabilities / actual_k
