@@ -157,11 +157,18 @@ def main():
             epoch_bar = tqdm(sample(task_actions, len(task_actions)), file=orig_stdout)
             model.train()
 
+
+            train_loaders = { task: iter(tasks_config[task]["train_loder"]) for task in set(task_actions) }
+
             for task_action in epoch_bar:
                 train_loader = tasks_config[task_action]["train_loader"]
                 epoch_bar.set_description(f"current task: {task_action.name} in epoch:{epoch}")
 
-                data = next(iter(train_loader))
+                try:
+                    data = next(train_loaders[task_action])
+                except StopIteration:
+                    print(f"Iterator ended early on task {task_action}")
+                    continue
 
                 optimizer.zero_grad(set_to_none=True)
 
